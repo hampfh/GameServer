@@ -17,15 +17,13 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 
 Client::~Client() {
 	// Terminate client thread
-	std::terminate();
+	//std::terminate();
 }
 
 void Client::Loop() {
 	while (online_) {
 		Receive();
-		std::cout << "INITIALIZING SENDING" << std::endl;
 		Send();
-		std::cout << "CLIENT> looped" << std::endl;
 	}
 	std::cout << "CLIENT> Thread " << id_ << " exited the loop" << std::endl;
 	// Delete self
@@ -34,13 +32,11 @@ void Client::Loop() {
 
 void Client::Receive() {
 	while (true) {
-		std::cout << "CLIENT> RECEIVING LOOP" << std::endl;
 		// Perform receiving operation if serverApp is ready and
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == State::receiving &&
 			clientState_ != State::receiving) {
 
-			std::cout << "CLIENT> RECEIVING" << std::endl;
 			char incoming[1024];
 
 			// Clear the storage before usage
@@ -62,28 +58,26 @@ void Client::Receive() {
 
 			// Add to shared memory
 			sharedMemory_->Add(coordinates_);
-			std::cout << "CLIENT> RECEIVING (ADD)" << std::endl;
+			
 			clientState_ = State::receiving;
 			sharedMemory_->ClientState(clientState_);
-			std::cout << "CLIENT> RECEIVING (STATE)" << std::endl;
 
-			std::cout << "SERVER> Socket: " << id_ << " has received" << std::endl;
+			std::cout << "CLIENT> Socket: " << id_ << " has received" << std::endl;
 			return;
 		}	
 	}
 }
 
 void Client::Send() {
-	std::cout << "CLIENT> SENDING STATE" << std::endl;
 	while (true) {
 		//std::cout << "Server state: " << sharedMemory_->GetServerState() << std::endl;
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == State::sending &&
 			clientState_ != State::sending) {
-			std::cout << "CLIENT> SENDING PERFORMED" << std::endl;
+			
 			std::string outgoing = (alive_ ? "A" : "D");
-			std::cout << "CLIENT> SENDING" << std::endl;
+
 			// Iterate through all clients
 			std::string clientCoordinates = "<";
 			for (auto &client : sharedMemory_->GetCoordinates()) {
@@ -112,7 +106,6 @@ void Client::Send() {
 			// Client ready
 			clientState_ = State::sending;
 			sharedMemory_->ClientState(clientState_);
-			std::cout << "CLIENT> SENDING FINISHED" << std::endl;
 			return;
 		}
 	}
@@ -135,7 +128,6 @@ void Client::Interpret(char* incoming, const int bytes) {
 
 	// Strip player position
 	while (std::regex_search(copy, mainMatcher, main)) {
-		std::cout << "CLIENT> Regex" << std::endl;
 		int x = 0, y = 0;
 
 		for (auto segment : mainMatcher) {

@@ -20,6 +20,8 @@ private:
 
 	SOCKET listening_;
 
+	int selectResult_;
+
 	int seed_;
 
 	int clientId_;

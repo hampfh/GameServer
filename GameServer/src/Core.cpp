@@ -4,6 +4,8 @@
 #include <string>
 #pragma comment(lib,"WS2_32")
 
+//https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
+
 Core::Core() {
 	// Initialize variables
 	running_ = false;
@@ -109,40 +111,36 @@ void Core::Loop() {
 }
 
 void Core::CleanUp() {
-	
+
 }
 
 void Core::InitializeReceiving() {
 
-	std::cout << "RECEIVING GROUP" << std::endl;
-
 	sharedMemory_->SetState(State::receiving);
 
-	std::cout << "Clients: " << sharedMemory_->GetConnectedClients() << std::endl;
-
-	// Add "listening" socket as well
 	for (int i = 0; i < sharedMemory_->GetConnectedClients(); i++) {
+
 		const SOCKET socket = sharedMemory_->GetSockets()->fd_array[i];
 
 		if (socket == listening_) {
-
+			std::cout << "1" << std::endl;
 			// Check for new connections
 			const SOCKET newClient = accept(listening_, nullptr, nullptr);
-
+			std::cout << "2" << std::endl;
 			sharedMemory_->AddSocket(newClient);
-
+			std::cout << "3" << std::endl;
 			// Add newClient to socketContentList
 			clientId_++;
 
 			// TODO Assign socket to client class
 			// Create new client object
 			Client* clientObject = new Client(newClient, sharedMemory_, clientId_);
-
+			std::cout << "4" << std::endl;
 			// TODO Create thread and add clientObject to it
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
 			clientThread.detach();
-
+			std::cout << "5" << std::endl;
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server";
 			// Send the message to the new client
@@ -159,9 +157,11 @@ void Core::InitializeReceiving() {
 			std::cout << "SERVER> Client#" << newClient << ": was assigned ID " << clientId_ << std::endl;
 			break;
 		}
+		std::cout << "RECEIVE FINISHED" << std::endl;
 	}
 
-	while(true) {
+	int tempCount = 0;
+	while (true) {
 		// Check if all clients have received their payload
 		std::cout << "SERVER> CLIENTS READY: " << sharedMemory_->GetReadyClients() << std::endl;
 		std::cout << "SERVER> CLIENTS CONNECTED: " << sharedMemory_->GetConnectedClients() << std::endl;
@@ -169,30 +169,41 @@ void Core::InitializeReceiving() {
 			sharedMemory_->SetState(State::awaiting);
 			return;
 		}
+		if (tempCount > 100) {
+			sharedMemory_->SetState(State::awaiting);
+			return;
+		}
+		tempCount++;
 		Sleep(1);
 	}
 }
 
 void Core::InitializeSending() const {
-	std::cout << "SENDING GROUP" << std::endl;
+	std::cout << "SERVER> SENDING STATE" << std::endl;
 	sharedMemory_->SetState(State::sending);
 
-	while(true) {
+	int tempCount = 0;
+	while (true) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(State::awaiting);
 			return;
 		}
+		if (tempCount > 100) {
+			std::cout << "SERVER> SENDING TIMED OUT" << std::endl;
+			sharedMemory_->SetState(State::awaiting);
+			return;
+		}
+		tempCount++;
 		Sleep(1);
 	}
 }
 
 void Core::Interpreter() {
 	std::string command;
-	while(true) {
+	while (true) {
 		// TODO add an interpreter for the server commands
 		std::cin >> command;
 		std::cout << command << std::endl;
 	}
 }
-
