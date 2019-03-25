@@ -5,16 +5,19 @@
 
 Core::Core() {
 	// Setup logging
-	const auto logger = spdlog::rotating_logger_mt("GameServer", "logs/rotating.txt", 1048576 * 5, 3);
+	fileCore_ = spdlog::rotating_logger_mt("FileCore", "logs/rotating.txt", 1048576 * 5, 3);
+	const auto clientLog = spdlog::rotating_logger_mt("FileClient", "logs/rotating.txt", 1048576 * 5, 3);
+	
+	conCore_ = spdlog::stdout_color_mt("ConCore");
+	const auto clientConsoleLog = spdlog::stdout_color_mt("ConClient");
+
 	spdlog::flush_every(std::chrono::seconds(5));
-	spdlog::set_pattern("[%x-%H:%M:%S] %n: %v");
-	set_default_logger(logger);
+	spdlog::set_pattern("[%x-%H:%M:%S] %^%n: %v%$");
+	spdlog::set_default_logger(conCore_);
 
 	// Initialize variables
 	running_ = false;
 	clientId_ = 0;
-
-	spdlog::error("Can't initialize winsock");
 
 	const int port = 15000;
 
@@ -23,14 +26,16 @@ Core::Core() {
 	WSADATA wsaData;
 	int wsOK = WSAStartup(ver, &wsaData);
 	if (wsOK != 0) {
-		std::cout << "Can't initialize winsock" << std::endl;
+		spdlog::get("ConCore")->error("Can't initialize winsock");
+		spdlog::get("Core")->error("Can't initialize winsock");
 		return;
 	}
 
 	// Create listening socket
 	listening_ = socket(AF_INET, SOCK_STREAM, 0);
 	if (listening_ == INVALID_SOCKET) {
-		std::cout << "Can't create listening socket" << std::endl;
+		spdlog::get("ConCore")->error("Can't create listening socket");
+		spdlog::get("Core")->error("Can't create listening socket");
 		return;
 	}
 
@@ -56,10 +61,12 @@ Core::Core() {
 	// Generate server seed
 	srand(time(nullptr));
 	const int serverSeed = rand() % 100000;
-	std::cout << "Server seed is: " << serverSeed << std::endl;
+
+	spdlog::get("ConCore")->info("Server seed is " + std::to_string(serverSeed));
+
 	seed_ = serverSeed;
 
-	std::cout << "Server port is: " << port << std::endl;
+	spdlog::get("ConCore")->info("Server port is " + std::to_string(port));
 
 	// Instantiate shared memory
 	sharedMemory_ = new SharedMemory;
@@ -78,7 +85,7 @@ Core::~Core() {
 void Core::Execute() {
 
 	running_ = true;
-	std::cout << "Server Starting" << std::endl;
+	spdlog::get("ConCore")->info("Server Starting");
 	timeInterval_.tv_usec = 1000;
 
 	while(running_) {
@@ -150,7 +157,7 @@ void Core::InitializeReceiving() {
 			send(newClient, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
 
 			// Console message
-			std::cout << "SERVER> Client#" << newClient << ": connected to server\n";
+			spdlog::get("ConCore")->info("Client#" + std::to_string(newClient)  + " connected to the server");
 
 			send(newClient, std::to_string(clientId_).c_str(), std::to_string(clientId_).size() + 1, 0);
 			// wait one millisecond and then send another message

@@ -11,8 +11,12 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 	alive_ = true;
 	online_ = true;
 	sharedMemory_ = shared_memory;
+	
+	// Assign logger
+	fileClient_ = spdlog::get("FileClient");
+	conClient_ = spdlog::get("ConClient");
 
-	std::cout << "CLIENT> Client#" << socket << " was assigned ID: " << id << std::endl;
+	conClient_->info("Client#" + std::to_string(socket) + " was assigned ID: " + std::to_string(id));
 }
 
 Client::~Client() {
@@ -25,7 +29,7 @@ void Client::Loop() {
 		Receive();
 		Send();
 	}
-	std::cout << "CLIENT> Thread " << id_ << " exited the loop" << std::endl;
+	conClient_->info("Thread " + std::to_string(id_) + " exited the loop");
 	// Delete self
 	delete this;
 }
@@ -83,13 +87,7 @@ void Client::Send() {
 			// Iterate through all clients
 			std::string clientCoordinates = "";
 			auto coordinates = sharedMemory_->GetCoordinates();
-			for (int i = 0; i < coordinates.size(); i++) {
-				for (int j = 0; j < coordinates[i].size(); j++) {
-					std::cout << "x: " << coordinates[i][j][0];
-					std::cout << "y: " << coordinates[i][j][1] << std::endl;
-				}
-				std::cout << "###########" << std::endl;
-			}
+
 			for (auto &client : sharedMemory_->GetCoordinates()) {
 				clientCoordinates.append("<");
 				for (auto &coordinate : client) {
@@ -131,11 +129,9 @@ void Client::Interpret(char* incoming, const int bytes) {
 	const std::regex main("\\d+:\\d+");
 	std::smatch mainMatcher;
 
-	std::cout << "CLIENT> Incoming message: " << command << std::endl;
-
 	// Check if character has died
 	if (command[0] == 'D' && alive_) {
-		std::cout << "CLIENT> Client #" << socket_ << " died" << std::endl;
+		conClient_->warn("Client#" + std::to_string(socket_) + " died");
 		alive_ = false;
 	}
 
@@ -176,7 +172,7 @@ void Client::Drop() const {
 		// Clear the socket
 		closesocket(socket_);
 
-		std::cout << "CLIENT> Client #" << id_ << " was dropped" << std::endl;
+		conClient_->warn("Client#" + std::to_string(id_) + " was dropped");
 	}
 }
 

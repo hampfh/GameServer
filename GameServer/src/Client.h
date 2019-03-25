@@ -22,6 +22,9 @@ private:
 	SOCKET socket_;
 	SharedMemory* sharedMemory_;
 
+	std::shared_ptr<spdlog::logger> fileClient_;
+	std::shared_ptr<spdlog::logger> conClient_;
+
 	State clientState_;
 
 	std::vector<std::vector<int>> coordinates_;

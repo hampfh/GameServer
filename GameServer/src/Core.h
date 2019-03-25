@@ -28,6 +28,9 @@ private:
 
 	int socketCount_;
 
+	std::shared_ptr<spdlog::logger> fileCore_;
+	std::shared_ptr<spdlog::logger> conCore_;
+
 	timeval timeInterval_;
 
 	fd_set workingSet_;
