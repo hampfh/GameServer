@@ -22,8 +22,7 @@ private:
 	SOCKET socket_;
 	SharedMemory* sharedMemory_;
 
-	std::shared_ptr<spdlog::logger> fileClient_;
-	std::shared_ptr<spdlog::logger> conClient_;
+	std::shared_ptr<spdlog::logger> log_;
 
 	State clientState_;
 

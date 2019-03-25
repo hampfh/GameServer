@@ -13,10 +13,9 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 	sharedMemory_ = shared_memory;
 	
 	// Assign logger
-	fileClient_ = spdlog::get("FileClient");
-	conClient_ = spdlog::get("ConClient");
+	log_ = spdlog::get("Client");
 
-	conClient_->info("Client#" + std::to_string(socket) + " was assigned ID: " + std::to_string(id));
+	log_->info("Client#" + std::to_string(socket) + " was assigned ID: " + std::to_string(id));
 }
 
 Client::~Client() {
@@ -29,7 +28,7 @@ void Client::Loop() {
 		Receive();
 		Send();
 	}
-	conClient_->info("Thread " + std::to_string(id_) + " exited the loop");
+	log_->info("Thread " + std::to_string(id_) + " exited the loop");
 	// Delete self
 	delete this;
 }
@@ -57,10 +56,10 @@ void Client::Receive() {
 				return;
 			}
 
-			//std::cout << "CLIENT> Response: " << incoming << std::endl;
-
 			// Interpret response
 			Interpret(incoming, bytes);
+
+			log_->info("IN: " + std::string(incoming, sizeof(incoming)));
 
 			// Add to shared memory
 			sharedMemory_->Add(coordinates_);
@@ -68,7 +67,6 @@ void Client::Receive() {
 			clientState_ = State::receiving;
 			sharedMemory_->ClientState(clientState_);
 
-			//std::cout << "CLIENT> Socket: " << id_ << " has received" << std::endl;
 			return;
 		}	
 	}
@@ -76,7 +74,6 @@ void Client::Receive() {
 
 void Client::Send() {
 	while (true) {
-		//std::cout << "Server state: " << sharedMemory_->GetServerState() << std::endl;
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == State::sending &&
@@ -94,8 +91,6 @@ void Client::Send() {
 					// Add coordinate separator
 					clientCoordinates.append("|");
 					// Append separator
-					
-					std::cout << "x: " << coordinate[0] << " | y:" << coordinate[1] << std::endl;
 
 					clientCoordinates.append(
 						std::to_string(coordinate[0]) +
@@ -114,6 +109,8 @@ void Client::Send() {
 			// Send payload
 			send(socket_, outgoing.c_str(), outgoing.size() + 1, 0);
 
+			log_->info("OUT: " + outgoing);
+			
 			// Client ready
 			clientState_ = State::sending;
 			sharedMemory_->ClientState(clientState_);
@@ -131,7 +128,7 @@ void Client::Interpret(char* incoming, const int bytes) {
 
 	// Check if character has died
 	if (command[0] == 'D' && alive_) {
-		conClient_->warn("Client#" + std::to_string(socket_) + " died");
+		log_->warn("Client#" + std::to_string(socket_) + " died");
 		alive_ = false;
 	}
 
@@ -143,9 +140,6 @@ void Client::Interpret(char* incoming, const int bytes) {
 			x = std::stoi(segment.str().substr(0, segment.str().find(":")));
 			y = std::stoi(segment.str().substr(segment.str().find(":") + 1));
 		}
-
-		// Insert coordinate to list
-		std::cout << x << " : " << y << std::endl;
 
 		std::vector<int> coordinate = {x, y};
 		coordinates_.push_back(coordinate);
@@ -172,7 +166,7 @@ void Client::Drop() const {
 		// Clear the socket
 		closesocket(socket_);
 
-		conClient_->warn("Client#" + std::to_string(id_) + " was dropped");
+		log_->info("Client#" + std::to_string(id_) + " was dropped");
 	}
 }
 

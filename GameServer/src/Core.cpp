@@ -4,16 +4,30 @@
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 Core::Core() {
-	// Setup logging
-	fileCore_ = spdlog::rotating_logger_mt("FileCore", "logs/rotating.txt", 1048576 * 5, 3);
-	const auto clientLog = spdlog::rotating_logger_mt("FileClient", "logs/rotating.txt", 1048576 * 5, 3);
-	
-	conCore_ = spdlog::stdout_color_mt("ConCore");
-	const auto clientConsoleLog = spdlog::stdout_color_mt("ConClient");
+	// ### Setup logging ###
 
+	// Connecting loggers to same output file
+	const auto sharedFileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
+
+	// Setup core logger
+	std::vector<spdlog::sink_ptr> sinks;
+	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+	sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3));
+	log_ = std::make_shared<spdlog::logger>("Core", begin(sinks), end(sinks));
+	register_logger(log_);
+
+	sinks.clear();
+
+	// Setup client logger
+	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+	sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3));
+	register_logger(std::make_shared<spdlog::logger>("Client", begin(sinks), end(sinks)));
+
+	// Global spdlog settings
 	spdlog::flush_every(std::chrono::seconds(5));
-	spdlog::set_pattern("[%x-%H:%M:%S] %^%n: %v%$");
-	spdlog::set_default_logger(conCore_);
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%l] %^%n: %v%$");
+
+	// ### Setup winsock ###
 
 	// Initialize variables
 	running_ = false;
@@ -22,20 +36,18 @@ Core::Core() {
 	const int port = 15000;
 
 	// Initialize win sock	
-	WORD ver = MAKEWORD(2, 2);
+	const WORD ver = MAKEWORD(2, 2);
 	WSADATA wsaData;
-	int wsOK = WSAStartup(ver, &wsaData);
-	if (wsOK != 0) {
-		spdlog::get("ConCore")->error("Can't initialize winsock");
-		spdlog::get("Core")->error("Can't initialize winsock");
+	const int wsOk = WSAStartup(ver, &wsaData);
+	if (wsOk != 0) {
+		log_->error("Can't initialize winsock");
 		return;
 	}
 
 	// Create listening socket
 	listening_ = socket(AF_INET, SOCK_STREAM, 0);
 	if (listening_ == INVALID_SOCKET) {
-		spdlog::get("ConCore")->error("Can't create listening socket");
-		spdlog::get("Core")->error("Can't create listening socket");
+		log_->error("Can't create listening socket");
 		return;
 	}
 
@@ -62,11 +74,11 @@ Core::Core() {
 	srand(time(nullptr));
 	const int serverSeed = rand() % 100000;
 
-	spdlog::get("ConCore")->info("Server seed is " + std::to_string(serverSeed));
+	log_->info("Server seed is " + std::to_string(serverSeed));
 
 	seed_ = serverSeed;
 
-	spdlog::get("ConCore")->info("Server port is " + std::to_string(port));
+	log_->info("Server port is " + std::to_string(port));
 
 	// Instantiate shared memory
 	sharedMemory_ = new SharedMemory;
@@ -85,7 +97,7 @@ Core::~Core() {
 void Core::Execute() {
 
 	running_ = true;
-	spdlog::get("ConCore")->info("Server Starting");
+	log_->info("Server Starting");
 	timeInterval_.tv_usec = 1000;
 
 	while(running_) {
@@ -129,6 +141,9 @@ void Core::InitializeReceiving() {
 
 	sharedMemory_->SetState(State::receiving);
 
+	// Clear the coordinate storage
+	sharedMemory_->Reset();
+
 	for (int i = 0; i < sharedMemory_->GetConnectedClients(); i++) {
 
 		const SOCKET socket = workingSet_.fd_array[i];
@@ -136,7 +151,6 @@ void Core::InitializeReceiving() {
 		if (socket == listening_) {
 
 			// Check for new connections
-			std::cout << listening_ << std::endl;
 			const SOCKET newClient = accept(listening_, nullptr, nullptr);
 
 			sharedMemory_->AddSocket(newClient);
@@ -157,14 +171,14 @@ void Core::InitializeReceiving() {
 			send(newClient, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
 
 			// Console message
-			spdlog::get("ConCore")->info("Client#" + std::to_string(newClient)  + " connected to the server");
+			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
 
 			send(newClient, std::to_string(clientId_).c_str(), std::to_string(clientId_).size() + 1, 0);
 			// wait one millisecond and then send another message
 			Sleep(1);
 			send(newClient, std::to_string(seed_).c_str(), std::to_string(seed_).size() + 1, 0);
 			// Console message
-			std::cout << "SERVER> Client#" << newClient << ": was assigned ID " << clientId_ << std::endl;
+			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientId_));
 			break;
 		}
 	}
@@ -178,6 +192,7 @@ void Core::InitializeReceiving() {
 		}
 		if (tempCount > 100) {
 			sharedMemory_->SetState(State::awaiting);
+			log_->warn("Timed out receiving");
 			return;
 		}
 		tempCount++;
@@ -196,7 +211,7 @@ void Core::InitializeSending() const {
 			return;
 		}
 		if (tempCount > 100) {
-			std::cout << "SERVER> SENDING TIMED OUT" << std::endl;
+			log_->warn("Timed out sending");
 			sharedMemory_->SetState(State::awaiting);
 			return;
 		}
