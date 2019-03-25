@@ -1,5 +1,5 @@
+#include "pch.h"
 #include "Client.h"
-#include <iostream>
 
 Client::Client() {
 	id_ = -1;
@@ -53,6 +53,8 @@ void Client::Receive() {
 				return;
 			}
 
+			//std::cout << "CLIENT> Response: " << incoming << std::endl;
+
 			// Interpret response
 			Interpret(incoming, bytes);
 
@@ -62,7 +64,7 @@ void Client::Receive() {
 			clientState_ = State::receiving;
 			sharedMemory_->ClientState(clientState_);
 
-			std::cout << "CLIENT> Socket: " << id_ << " has received" << std::endl;
+			//std::cout << "CLIENT> Socket: " << id_ << " has received" << std::endl;
 			return;
 		}	
 	}
@@ -79,13 +81,24 @@ void Client::Send() {
 			std::string outgoing = (alive_ ? "A" : "D");
 
 			// Iterate through all clients
-			std::string clientCoordinates = "<";
+			std::string clientCoordinates = "";
+			auto coordinates = sharedMemory_->GetCoordinates();
+			for (int i = 0; i < coordinates.size(); i++) {
+				for (int j = 0; j < coordinates[i].size(); j++) {
+					std::cout << "x: " << coordinates[i][j][0];
+					std::cout << "y: " << coordinates[i][j][1] << std::endl;
+				}
+				std::cout << "###########" << std::endl;
+			}
 			for (auto &client : sharedMemory_->GetCoordinates()) {
 				clientCoordinates.append("<");
 				for (auto &coordinate : client) {
 					// Add coordinate separator
 					clientCoordinates.append("|");
 					// Append separator
+					
+					std::cout << "x: " << coordinate[0] << " | y:" << coordinate[1] << std::endl;
+
 					clientCoordinates.append(
 						std::to_string(coordinate[0]) +
 						":" +
@@ -136,7 +149,9 @@ void Client::Interpret(char* incoming, const int bytes) {
 		}
 
 		// Insert coordinate to list
-		int coordinate[] = {x, y};
+		std::cout << x << " : " << y << std::endl;
+
+		std::vector<int> coordinate = {x, y};
 		coordinates_.push_back(coordinate);
 
 		// Remove this coordinate from the remaining coordinates

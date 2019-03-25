@@ -1,3 +1,4 @@
+#include "pch.h"
 #include "SharedMemory.h"
 
 SharedMemory::SharedMemory() {
@@ -21,7 +22,7 @@ void SharedMemory::ClientState(const State client_state) {
 	}
 }
 
-void SharedMemory::Add(const std::vector<int* > client_coordinates) {
+void SharedMemory::Add(std::vector<std::vector<int>> client_coordinates) {
 	while (true) {
 		if (mutex_.try_lock()) {
 			coordinates_.push_back(client_coordinates);

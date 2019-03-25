@@ -1,7 +1,4 @@
 #pragma once
-#include <WS2tcpip.h>
-#include <regex>
-#include <vector>
 #include "SharedMemory.h"
 
 class Client {
@@ -27,6 +24,6 @@ private:
 
 	State clientState_;
 
-	std::vector<int*> coordinates_;
+	std::vector<std::vector<int>> coordinates_;
 };
 

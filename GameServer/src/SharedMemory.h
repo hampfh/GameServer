@@ -1,7 +1,6 @@
 #pragma once
 #include <mutex>
-#include <vector>
-#include <winsock2.h>
+#include "pch.h"
 
 enum State {
 	awaiting = 1,
@@ -16,8 +15,8 @@ public:
 
 	void ClientState(State client_state);
 
-	void Add(std::vector<int* > client_coordinates);
-	std::vector<std::vector<int*>> GetCoordinates() const { return coordinates_; };
+	void Add(std::vector<std::vector<int>> client_coordinates);
+	std::vector<std::vector<std::vector<int>>> GetCoordinates() const { return coordinates_; };
 	void Reset();
 
 	void SetState(State new_state);
@@ -39,6 +38,6 @@ private:
 
 	std::mutex mutex_;
 
-	std::vector<std::vector<int*>> coordinates_;
+	std::vector<std::vector<std::vector<int>>> coordinates_;
 };
 

@@ -1,15 +1,20 @@
+#include "pch.h"
 #include "Core.h"
-#include <iostream>
-#include <ctime>
-#include <string>
-#pragma comment(lib,"WS2_32")
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 Core::Core() {
+	// Setup logging
+	const auto logger = spdlog::rotating_logger_mt("GameServer", "logs/rotating.txt", 1048576 * 5, 3);
+	spdlog::flush_every(std::chrono::seconds(5));
+	spdlog::set_pattern("[%x-%H:%M:%S] %n: %v");
+	set_default_logger(logger);
+
 	// Initialize variables
 	running_ = false;
 	clientId_ = 0;
+
+	spdlog::error("Can't initialize winsock");
 
 	const int port = 15000;
 
@@ -66,6 +71,7 @@ Core::Core() {
 
 Core::~Core() {
 	// Clean up server
+	WSACleanup();
 	delete sharedMemory_;
 }
 
@@ -83,12 +89,12 @@ void Core::Execute() {
 
 void Core::Loop() {
 
-	std::cout << "LOOP" << std::endl;
 	// Duplicate master
-	fd_set copy = *sharedMemory_->GetSockets();
+	workingSet_ = *sharedMemory_->GetSockets();
 
 	// Get socket list size
-	sharedMemory_->SetConnectedClients(select(0, &copy, nullptr, nullptr, &timeInterval_));
+	const int result = select(0, &workingSet_, nullptr, nullptr, &timeInterval_);
+	sharedMemory_->SetConnectedClients(result);
 
 	// Run states
 
@@ -104,10 +110,8 @@ void Core::Loop() {
 	// Swap server state
 	serverState_ = (serverState_ == 0 ? 1 : 0);
 
-	std::cout << "SERVER LOOPING" << std::endl;
-
 	// Default sleep time between responses
-	Sleep(100);
+	Sleep(1000);
 }
 
 void Core::CleanUp() {
@@ -120,27 +124,26 @@ void Core::InitializeReceiving() {
 
 	for (int i = 0; i < sharedMemory_->GetConnectedClients(); i++) {
 
-		const SOCKET socket = sharedMemory_->GetSockets()->fd_array[i];
+		const SOCKET socket = workingSet_.fd_array[i];
 
 		if (socket == listening_) {
-			std::cout << "1" << std::endl;
+
 			// Check for new connections
+			std::cout << listening_ << std::endl;
 			const SOCKET newClient = accept(listening_, nullptr, nullptr);
-			std::cout << "2" << std::endl;
+
 			sharedMemory_->AddSocket(newClient);
-			std::cout << "3" << std::endl;
+
 			// Add newClient to socketContentList
 			clientId_++;
 
-			// TODO Assign socket to client class
 			// Create new client object
 			Client* clientObject = new Client(newClient, sharedMemory_, clientId_);
-			std::cout << "4" << std::endl;
-			// TODO Create thread and add clientObject to it
+
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
 			clientThread.detach();
-			std::cout << "5" << std::endl;
+
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server";
 			// Send the message to the new client
@@ -157,14 +160,11 @@ void Core::InitializeReceiving() {
 			std::cout << "SERVER> Client#" << newClient << ": was assigned ID " << clientId_ << std::endl;
 			break;
 		}
-		std::cout << "RECEIVE FINISHED" << std::endl;
 	}
 
 	int tempCount = 0;
 	while (true) {
 		// Check if all clients have received their payload
-		std::cout << "SERVER> CLIENTS READY: " << sharedMemory_->GetReadyClients() << std::endl;
-		std::cout << "SERVER> CLIENTS CONNECTED: " << sharedMemory_->GetConnectedClients() << std::endl;
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(State::awaiting);
 			return;
@@ -179,7 +179,6 @@ void Core::InitializeReceiving() {
 }
 
 void Core::InitializeSending() const {
-	std::cout << "SERVER> SENDING STATE" << std::endl;
 	sharedMemory_->SetState(State::sending);
 
 	int tempCount = 0;

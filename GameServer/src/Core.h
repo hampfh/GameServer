@@ -1,6 +1,4 @@
 #pragma once
-#include <WS2tcpip.h>
-#include <thread>
 #include "Client.h"
 #include "SharedMemory.h"
 
@@ -31,6 +29,8 @@ private:
 	int socketCount_;
 
 	timeval timeInterval_;
+
+	fd_set workingSet_;
 
 	SharedMemory* sharedMemory_;
 };
