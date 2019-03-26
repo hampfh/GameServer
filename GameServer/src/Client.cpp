@@ -1,16 +1,13 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client() {
-	id_ = -1;
-	alive_ = true;
-	online_ = true;
-}
-
 Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket) {
 	alive_ = true;
 	online_ = true;
 	sharedMemory_ = shared_memory;
+	clientState_ = none;
+
+	loopInterval_ = std::chrono::microseconds(10000);
 	
 	// Assign logger
 	log_ = spdlog::get("Client");
@@ -20,15 +17,17 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 
 Client::~Client() {
 	// Terminate client thread
-	//std::terminate();
+	std::terminate();
 }
 
 void Client::Loop() {
 	while (online_) {
 		Receive();
 		Send();
+		std::this_thread::sleep_for(loopInterval_);
 	}
 	log_->info("Thread " + std::to_string(id_) + " exited the loop");
+	Drop();
 	// Delete self
 	delete this;
 }
@@ -48,13 +47,12 @@ void Client::Receive() {
 			// Receive 
 			const int bytes = recv(socket_, incoming, 1024, 0);
 
-			log_->info("Receiving: " + std::string(incoming, sizeof(incoming)));
+			//log_->info("Receiving: " + std::string(incoming, sizeof(incoming)));
 
 			// Check if client responds
 			if (bytes <= 0) {
 				// Disconnect client
 				online_ = false;
-				Drop();
 				return;
 			}
 
@@ -111,7 +109,7 @@ void Client::Send() {
 			// Send payload
 			send(socket_, outgoing.c_str(), outgoing.size() + 1, 0);
 
-			log_->info("Outgoing: " + outgoing);
+			//log_->info("Outgoing: " + outgoing);
 
 			// Client ready
 			clientState_ = State::sending;
@@ -160,15 +158,19 @@ void Client::SetId(const int id) {
 	id_ = id;
 }
 
+void Client::SetInterval(const std::chrono::microseconds microseconds) {
+	loopInterval_ = microseconds;
+}
+
 void Client::Drop() const {
 	if (socket_ != 0) {
+		log_->info("Client#" + std::to_string(socket_) + " was dropped");
+
 		// Remove socket from socketList
 		FD_CLR(socket_, sharedMemory_->GetSockets());
 
 		// Clear the socket
 		closesocket(socket_);
-
-		log_->info("Client#" + std::to_string(id_) + " was dropped");
 	}
 }
 

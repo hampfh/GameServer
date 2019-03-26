@@ -38,6 +38,9 @@ private:
 	int connectedClients_;
 
 	std::mutex mutex_;
+	std::mutex clientStateMtx_;
+	std::mutex addCoordinateMtx_;
+	std::mutex addSocketMtx_;
 
 	std::vector<std::vector<std::vector<int>>> coordinates_;
 };

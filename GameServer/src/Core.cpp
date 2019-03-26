@@ -66,6 +66,7 @@ Core::Core() {
 	// Create socket array
 	fd_set master;
 	FD_ZERO(&master);
+	workingSet_ = master;
 
 	// Add listening socket to array
 	FD_SET(listening_, &master);
@@ -130,6 +131,11 @@ void Core::Loop() {
 	// Default sleep time between responses
 	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
+
+void Core::CleanUp() {
+	
+}
+
 
 void Core::InitializeReceiving() {
 

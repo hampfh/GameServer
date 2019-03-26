@@ -3,7 +3,6 @@
 
 class Client {
 public:
-	Client();
 	Client(SOCKET socket, SharedMemory* shared_memory, int id);
 	~Client();
 	void Loop();
@@ -14,13 +13,14 @@ public:
 
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
+	void SetInterval(std::chrono::microseconds microseconds);
 private:
 	int id_;
-	int* clientCount_;
 	bool online_;
 	bool alive_;
 	SOCKET socket_;
 	SharedMemory* sharedMemory_;
+	std::chrono::microseconds loopInterval_;
 
 	std::shared_ptr<spdlog::logger> log_;
 

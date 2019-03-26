@@ -3,8 +3,9 @@
 
 SharedMemory::SharedMemory() {
 	clientsReady_ = 0;
+	serverState_ = none;
+	connectedClients_ = 0;
 }
-
 
 SharedMemory::~SharedMemory() {
 	Reset();
@@ -14,21 +15,25 @@ void SharedMemory::ClientState(const State client_state) {
 	while (true) {
 		// If the clients state matches the servers then 
 		// consider the client ready for next state
-		if (client_state == serverState_ && mutex_.try_lock()) {
+		if (client_state == serverState_ && clientStateMtx_.try_lock()) {
 			clientsReady_++;
-			mutex_.unlock();
+			clientStateMtx_.unlock();
 			return;
 		}
+		std::cout << "1 WAIT" << std::endl;
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 
 void SharedMemory::Add(std::vector<std::vector<int>> client_coordinates) {
 	while (true) {
-		if (mutex_.try_lock()) {
+		if (addCoordinateMtx_.try_lock()) {
 			coordinates_.push_back(client_coordinates);
-			mutex_.unlock();
+			addCoordinateMtx_.unlock();
 			return;
 		}
+		std::cout << "2 WAIT" << std::endl;
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 
@@ -49,12 +54,14 @@ void SharedMemory::SetState(const State new_state) {
 
 void SharedMemory::AddSocket(const SOCKET new_socket) {
 	while (true) {
-		if (mutex_.try_lock()) {
+		if (addSocketMtx_.try_lock()) {
 			// Add newClient to the socketList
 			FD_SET(new_socket, &sockets_);
-			mutex_.unlock();
+			addSocketMtx_.unlock();
 			return;
 		}
+		std::cout << "3 WAIT" << std::endl;
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 
