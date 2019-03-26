@@ -8,10 +8,10 @@ public:
 	~Core();
 	void Execute();
 	void Loop();
-	void CleanUp();
+	void CleanUp() const;
 
 	void InitializeSending() const;
-	void InitializeReceiving();
+	void InitializeReceiving(int select_result);
 	void Interpreter();
 private:
 	bool running_;
@@ -20,7 +20,7 @@ private:
 
 	int seed_;
 	int clientId_;
-	int serverState_ = 0;
+	State serverState_ = receiving;
 
 	std::shared_ptr<spdlog::logger> log_;
 

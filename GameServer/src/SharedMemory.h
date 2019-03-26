@@ -11,10 +11,10 @@ enum State {
 
 class SharedMemory {
 public:
-	SharedMemory();
+	SharedMemory(std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> shared_file_sink);
 	~SharedMemory();
 
-	void ClientState(State client_state);
+	void Ready();
 
 	void Add(std::vector<std::vector<int>> client_coordinates);
 	std::vector<std::vector<std::vector<int>>> GetCoordinates() const { return coordinates_; };
@@ -28,6 +28,7 @@ public:
 
 	fd_set* GetSockets() { return &sockets_; };
 	void AddSocket(SOCKET new_socket);
+	void DropSocket(SOCKET socket);
 	void AddSocketList(fd_set list);
 
 private:
@@ -37,11 +38,15 @@ private:
 	int clientsReady_;
 	int connectedClients_;
 
-	std::mutex mutex_;
+	std::shared_ptr<spdlog::logger> log_;
+
 	std::mutex clientStateMtx_;
 	std::mutex addCoordinateMtx_;
 	std::mutex addSocketMtx_;
+	std::mutex dropSocketMtx_;
 
 	std::vector<std::vector<std::vector<int>>> coordinates_;
+public:
+	const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink;
 };
 

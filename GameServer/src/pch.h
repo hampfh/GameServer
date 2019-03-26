@@ -13,4 +13,9 @@
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
+// String compressor
+//#include "cpp-base64-master/base64.h";
+
+#include "cpp-compressor.h"
+
 #pragma comment(lib,"WS2_32")
