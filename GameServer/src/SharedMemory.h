@@ -3,6 +3,7 @@
 #include "pch.h"
 
 enum State {
+	none = 0,
 	awaiting = 1,
 	receiving = 2,
 	sending = 3

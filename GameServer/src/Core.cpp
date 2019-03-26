@@ -24,8 +24,8 @@ Core::Core() {
 	register_logger(std::make_shared<spdlog::logger>("Client", begin(sinks), end(sinks)));
 
 	// Global spdlog settings
-	spdlog::flush_every(std::chrono::seconds(5));
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%l] %^%n: %v%$");
+	spdlog::flush_on(spdlog::level::info);
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
 
 	// ### Setup winsock ###
 
@@ -85,6 +85,10 @@ Core::Core() {
 
 	// Assign
 	sharedMemory_->AddSocketList(master);
+
+	// Other assignments
+	timeInterval_.tv_usec = 1000;
+	running_ = true;
 }
 
 
@@ -96,9 +100,7 @@ Core::~Core() {
 
 void Core::Execute() {
 
-	running_ = true;
 	log_->info("Server Starting");
-	timeInterval_.tv_usec = 1000;
 
 	while(running_) {
 		Loop();
@@ -118,28 +120,20 @@ void Core::Loop() {
 	// Run states
 
 	// Receiving state
-	if (serverState_ == 0) {
-		InitializeReceiving();
-	}
+	InitializeReceiving();
 	// Sending state
-	else if (serverState_ == 1) {
-		InitializeSending();
-	}
+	InitializeSending();
 
 	// Swap server state
 	serverState_ = (serverState_ == 0 ? 1 : 0);
 
 	// Default sleep time between responses
-	Sleep(1000);
-}
-
-void Core::CleanUp() {
-
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void Core::InitializeReceiving() {
 
-	sharedMemory_->SetState(State::receiving);
+	sharedMemory_->SetState(receiving);
 
 	// Clear the coordinate storage
 	sharedMemory_->Reset();
@@ -159,7 +153,7 @@ void Core::InitializeReceiving() {
 			clientId_++;
 
 			// Create new client object
-			Client* clientObject = new Client(newClient, sharedMemory_, clientId_);
+			auto* clientObject = new Client(newClient, sharedMemory_, clientId_);
 
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
@@ -183,41 +177,33 @@ void Core::InitializeReceiving() {
 		}
 	}
 
-	int tempCount = 0;
-	while (true) {
+	for (int i = 0; i < 100; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
-			sharedMemory_->SetState(State::awaiting);
+			sharedMemory_->SetState(awaiting);
 			return;
 		}
-		if (tempCount > 100) {
-			sharedMemory_->SetState(State::awaiting);
-			log_->warn("Timed out receiving");
-			return;
-		}
-		tempCount++;
-		Sleep(1);
+		// Sleep for half a millisecond
+		std::this_thread::sleep_for(std::chrono::microseconds(500));
 	}
+	sharedMemory_->SetState(awaiting);
+	log_->warn("[State Receive] Timed out");
 }
 
 void Core::InitializeSending() const {
-	sharedMemory_->SetState(State::sending);
+	sharedMemory_->SetState(sending);
 
-	int tempCount = 0;
-	while (true) {
+	for (int i = 0; i < 100; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
-			sharedMemory_->SetState(State::awaiting);
+			sharedMemory_->SetState(awaiting);
 			return;
 		}
-		if (tempCount > 100) {
-			log_->warn("Timed out sending");
-			sharedMemory_->SetState(State::awaiting);
-			return;
-		}
-		tempCount++;
-		Sleep(1);
+		// Sleep for half a millisecond
+		std::this_thread::sleep_for(std::chrono::microseconds(500));
 	}
+	log_->warn("[State Sending] Timed out");
+	sharedMemory_->SetState(awaiting);
 }
 
 void Core::Interpreter() {

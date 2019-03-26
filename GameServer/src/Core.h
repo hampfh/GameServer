@@ -18,15 +18,9 @@ private:
 
 	SOCKET listening_;
 
-	int selectResult_;
-
 	int seed_;
-
 	int clientId_;
-
 	int serverState_ = 0;
-
-	int socketCount_;
 
 	std::shared_ptr<spdlog::logger> log_;
 

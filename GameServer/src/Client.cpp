@@ -48,6 +48,8 @@ void Client::Receive() {
 			// Receive 
 			const int bytes = recv(socket_, incoming, 1024, 0);
 
+			log_->info("Receiving: " + std::string(incoming, sizeof(incoming)));
+
 			// Check if client responds
 			if (bytes <= 0) {
 				// Disconnect client
@@ -59,10 +61,11 @@ void Client::Receive() {
 			// Interpret response
 			Interpret(incoming, bytes);
 
-			log_->info("IN: " + std::string(incoming, sizeof(incoming)));
-
 			// Add to shared memory
 			sharedMemory_->Add(coordinates_);
+
+			// Clear client coords'
+			coordinates_.clear();
 			
 			clientState_ = State::receiving;
 			sharedMemory_->ClientState(clientState_);
@@ -78,7 +81,6 @@ void Client::Send() {
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == State::sending &&
 			clientState_ != State::sending) {
-			
 			std::string outgoing = (alive_ ? "A" : "D");
 
 			// Iterate through all clients
@@ -109,8 +111,8 @@ void Client::Send() {
 			// Send payload
 			send(socket_, outgoing.c_str(), outgoing.size() + 1, 0);
 
-			log_->info("OUT: " + outgoing);
-			
+			log_->info("Outgoing: " + outgoing);
+
 			// Client ready
 			clientState_ = State::sending;
 			sharedMemory_->ClientState(clientState_);
