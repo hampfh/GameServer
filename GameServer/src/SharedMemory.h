@@ -16,8 +16,10 @@ public:
 
 	void Ready();
 
-	void Add(std::vector<std::vector<int>> client_coordinates);
-	std::vector<std::vector<std::vector<int>>> GetCoordinates() const { return coordinates_; };
+	void AppendAdded(SOCKET socket, std::vector<std::vector<int>> client_coordinates);
+	void AppendRemoved(const SOCKET socket, std::vector<std::vector<int>> client_coordinates);
+	std::vector<std::vector<std::vector<int>>> GetAdded() const { return added_; };
+	std::vector<std::vector<std::vector<int>>> GetRemoved() const { return removed_; };
 	void Reset();
 
 	void SetState(State new_state);
@@ -45,7 +47,11 @@ private:
 	std::mutex addSocketMtx_;
 	std::mutex dropSocketMtx_;
 
-	std::vector<std::vector<std::vector<int>>> coordinates_;
+	// First vector holds x any y for a coordinate
+	// Second vector hold all coordinates
+	// Third vector hold all coordinates for each client
+	std::vector<std::vector<std::vector<int>>> added_;
+	std::vector<std::vector<std::vector<int>>> removed_;
 public:
 	const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink;
 };

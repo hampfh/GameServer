@@ -10,6 +10,7 @@ public:
 	void Send();
 	void Interpret(char* incoming, const int bytes);
 	void Drop() const;
+	std::vector<std::vector<int>> StripCoordinates(std::string string) const;
 
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
@@ -27,5 +28,7 @@ private:
 	State clientState_;
 
 	std::vector<std::vector<int>> coordinates_;
+	std::vector<std::vector<int>> addedCoordinates_;
+	std::vector<std::vector<int>> removedCoordinates_;
 };
 

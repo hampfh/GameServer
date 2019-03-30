@@ -31,32 +31,50 @@ void SharedMemory::Ready() {
 			clientStateMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 		temp++;
 	}
 }
 
-void SharedMemory::Add(std::vector<std::vector<int>> client_coordinates) {
-	int temp = 0;
+void SharedMemory::AppendAdded(const SOCKET socket, std::vector<std::vector<int>> client_coordinates) {
 	while (true) {
 		if (addCoordinateMtx_.try_lock()) {
+			// Add socket identification in beginning
+			const std::vector<int> header = {static_cast<int>(socket), 0 };
+			client_coordinates.insert(client_coordinates.begin(), 1, header);
+
 			// Add the clients coordinates to shared memory
-			coordinates_.push_back(client_coordinates);
+			added_.push_back(client_coordinates);
 
 			// Marks the clients as ready
-			clientsReady_++;
 			addCoordinateMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
-		temp++;
+	}
+}
+
+void SharedMemory::AppendRemoved(const SOCKET socket, std::vector<std::vector<int>> client_coordinates) {
+	while (true) {
+		if (addCoordinateMtx_.try_lock()) {
+			// Add socket identification in beginning
+			const std::vector<int> header = { static_cast<int>(socket), 0 };
+			client_coordinates.insert(client_coordinates.begin(), 1, header);
+
+			// Add the clients coordinates to shared memory
+			removed_.push_back(client_coordinates);
+
+			// Marks the clients as ready
+			addCoordinateMtx_.unlock();
+			return;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 
 void SharedMemory::Reset() {
-	coordinates_.clear();
+	added_.clear();
+	removed_.clear();
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) {
@@ -81,7 +99,6 @@ void SharedMemory::AddSocket(const SOCKET new_socket) {
 			addSocketMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 		temp++;
 	}
