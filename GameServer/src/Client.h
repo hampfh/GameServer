@@ -27,8 +27,6 @@ private:
 
 	State clientState_;
 
-	std::vector<std::vector<int>> coordinates_;
-	std::vector<std::vector<int>> addedCoordinates_;
-	std::vector<std::vector<int>> removedCoordinates_;
+	std::vector<int[2]> clientCommands_;
 };
 

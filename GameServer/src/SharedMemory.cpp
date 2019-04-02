@@ -36,33 +36,17 @@ void SharedMemory::Ready() {
 	}
 }
 
-void SharedMemory::AppendAdded(const SOCKET socket, std::vector<std::vector<int>> client_coordinates) {
+void SharedMemory::AppendClientCommands(const SOCKET socket, std::vector<int[2]> client_coordinates) {
 	while (true) {
 		if (addCoordinateMtx_.try_lock()) {
-			// Add socket identification in beginning
-			const std::vector<int> header = {static_cast<int>(socket), 0 };
-			client_coordinates.insert(client_coordinates.begin(), 1, header);
 
+			// Add socket id to command
+			for (auto command : client_coordinates) {
+				command[0] = socket;
+			}
+			
 			// Add the clients coordinates to shared memory
-			added_.push_back(client_coordinates);
-
-			// Marks the clients as ready
-			addCoordinateMtx_.unlock();
-			return;
-		}
-		std::this_thread::sleep_for(std::chrono::microseconds(100));
-	}
-}
-
-void SharedMemory::AppendRemoved(const SOCKET socket, std::vector<std::vector<int>> client_coordinates) {
-	while (true) {
-		if (addCoordinateMtx_.try_lock()) {
-			// Add socket identification in beginning
-			const std::vector<int> header = { static_cast<int>(socket), 0 };
-			client_coordinates.insert(client_coordinates.begin(), 1, header);
-
-			// Add the clients coordinates to shared memory
-			removed_.push_back(client_coordinates);
+			clientCommands_.push_back(client_coordinates);
 
 			// Marks the clients as ready
 			addCoordinateMtx_.unlock();
@@ -73,8 +57,7 @@ void SharedMemory::AppendRemoved(const SOCKET socket, std::vector<std::vector<in
 }
 
 void SharedMemory::Reset() {
-	added_.clear();
-	removed_.clear();
+	clientCommands_.clear();
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) {
