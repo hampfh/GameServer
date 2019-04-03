@@ -36,28 +36,46 @@ void SharedMemory::Ready() {
 	}
 }
 
-void SharedMemory::AppendClientCommands(const SOCKET socket, std::vector<int[2]> client_coordinates) {
+void SharedMemory::AppendClientCommands(const int id, std::string command) {
 	while (true) {
-		if (addCoordinateMtx_.try_lock()) {
+		if (addCommandMtx_.try_lock()) {
 
-			// Add socket id to command
-			for (auto command : client_coordinates) {
-				command[0] = socket;
-			}
+			// Encapsulate command inside a socket block
+			command.insert(0, "{" + std::to_string(id) + "|");
+			command.append("}");
 			
 			// Add the clients coordinates to shared memory
-			clientCommands_.push_back(client_coordinates);
+			commandQueue_.push_back(command);
+
+			// TODO Add a storage that saves all past commands to make it possible for clients to connect later
 
 			// Marks the clients as ready
-			addCoordinateMtx_.unlock();
+			addCommandMtx_.unlock();
 			return;
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 
+void SharedMemory::SetCoreCall(std::string& command) {
+	// Add the clients coordinates to shared memory
+	coreCall_ = command;
+}
+
+void SharedMemory::PerformedCoreCall() {
+	coreCallPerformedCount_++;
+	if (coreCallPerformedCount_ == connectedClients_) {
+		ResetCoreCall();
+	}
+}
+
+void SharedMemory::ResetCoreCall() {
+	coreCallPerformedCount_ = 0;
+	coreCall_.clear();
+}
+
 void SharedMemory::Reset() {
-	clientCommands_.clear();
+	commandQueue_.clear();
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) {

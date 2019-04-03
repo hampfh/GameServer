@@ -16,8 +16,12 @@ public:
 
 	void Ready();
 
-	void AppendClientCommands(SOCKET socket, std::vector<int[2]> client_coordinates);
-	std::vector<std::vector<int[2]>> GetClientCommands() const { return clientCommands_; };
+	void AppendClientCommands(int id, std::string command);
+	void SetCoreCall(std::string& command);
+	void ResetCoreCall();
+	void PerformedCoreCall();
+	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
+	std::string GetCoreCall() const { return coreCall_; };
 	void Reset();
 
 	void SetState(State new_state);
@@ -41,14 +45,13 @@ private:
 	std::shared_ptr<spdlog::logger> log_;
 
 	std::mutex clientStateMtx_;
-	std::mutex addCoordinateMtx_;
+	std::mutex addCommandMtx_;
 	std::mutex addSocketMtx_;
 	std::mutex dropSocketMtx_;
 
-	// First vector holds x any y for a coordinate
-	// Second vector hold all coordinates
-	// Third vector hold all socket and the command for each client
-	std::vector<std::vector<int[2]>> clientCommands_;
+	std::vector<std::string> commandQueue_;
+	std::string coreCall_;
+	int coreCallPerformedCount_;
 public:
 	const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink;
 };

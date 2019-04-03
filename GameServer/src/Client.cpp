@@ -21,7 +21,7 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 }
 
 Client::~Client() {
-	clientCommands_.clear();
+	clientCommand_.clear();
 }
 
 void Client::Loop() {
@@ -65,10 +65,14 @@ void Client::Receive() {
 	}
 
 	// Interpret response
-	Interpret(incoming, bytes);
+
+	clientCommand_ = std::string(incoming, strlen(incoming));
 
 	// Add to shared memory and mark as ready
-	//TODO Send command to core
+	sharedMemory_->AppendClientCommands(id_, clientCommand_);
+
+	clientCommand_.clear();
+
 	sharedMemory_->Ready();
 	clientState_ = receiving;
 }
@@ -77,31 +81,26 @@ void Client::Send() {
 	std::string outgoing;
 
 	// Iterate through all clients
-	std::string clientCoordinates = "<";
-	auto commands = sharedMemory_->GetClientCommands();
+	auto queue = sharedMemory_->GetClientCommands();
+	std::string coreCall = sharedMemory_->GetCoreCall();
+	if (!coreCall.empty()) {
+		outgoing = coreCall;
+		sharedMemory_->PerformedCoreCall();
+	}
 
-	for (auto& client : commands) {
-		// TODO Format string for sending
-		//clientCoordinates.append("a{|");
-		//for (auto &coordinate : client) {
-		//	clientCoordinates.append(
-		//		std::to_string(coordinate[0]) +
-		//		":" +
-		//		std::to_string(coordinate[1])
-		//	);
-		//	clientCoordinates.append("|");
-		//}
-		//clientCoordinates.append("}");
-		//
-		//// Add client coordinates to the outgoing message
-		//outgoing.append(clientCoordinates);
-		//// Reset client string
-		//clientCoordinates = "";
+	for (auto& client : queue) {
+
+		// Skip command if it comes from the client itself
+		if (Interpret(client)[0] == std::to_string(id_)) {
+			continue;
+		}
+
+		outgoing.append(client);
 	}
 
 	// Send payload
 	// TODO encode output using compressor tool
-	send(socket_, outgoing.c_str(), outgoing.size() + 1, 0);
+	send(socket_, outgoing.c_str(), static_cast<int>(outgoing.size()) + 1, 0);
 
 	// Client ready
 	clientState_ = sending;
@@ -109,46 +108,22 @@ void Client::Send() {
 
 }
 
-void Client::Interpret(char* incoming, const int bytes) {
+std::vector<std::string> Client::Interpret(std::string string) const {
 
-	//std::vector<int> commands;
-	//
-	//// Convert incoming to command
-	//const std::string command = std::string(incoming, bytes);
-	//std::string copy = command;
-	//
-	//// Match "add" coordinates
-	//const std::regex regexAdd("a\\{\\|([^}]+)\\|\\}");
-	//
-	//std::smatch mainMatcher;
-	//
-	//// Find the coordinates to append
-	//while (std::regex_search(copy, mainMatcher, regexAdd)) {
-	//	for (auto addSegment : mainMatcher) {
-	//		// Strip out coordinates
-	//		addList = StripCoordinates(addSegment.str());
-	//	}
-	//	copy = mainMatcher.suffix().str();
-	//}
-	//
-	//// Add changes of coordinates to client	
-	//addedCoordinates_ = addList;
-	//removedCoordinates_ = removeList;
-	//
-	//// Perform adds on coordinates_
-	//// Make space for new vector
-	//coordinates_.reserve(addList.size());
-	//// Insert the new vector to all coordinates
-	//coordinates_.insert(coordinates_.end(), addList.begin(), addList.end());
-	//
-	//// Perform removes on coordinates_
-	//for (int i = 0; i < coordinates_.size(); i++) {
-	//	for (const auto& toRemove : removeList) {
-	//		if (coordinates_[i] == toRemove) {
-	//			coordinates_.erase(coordinates_.begin() + i);
-	//		}
-	//	}
-	//}
+	std::vector<std::string> matches;
+
+	const std::regex regexCommand("[^\\|{}\\[\\]]+");
+	std::smatch mainMatcher;
+
+	while (std::regex_search(string, mainMatcher, regexCommand)) {
+		for (auto addSegment : mainMatcher) {
+			// Append the commands to the list
+			matches.push_back(addSegment);
+		}
+		string = mainMatcher.suffix().str();
+	}
+
+	return matches;
 }
 
 

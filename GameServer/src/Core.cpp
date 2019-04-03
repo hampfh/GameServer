@@ -226,7 +226,11 @@ void Core::Interpreter() {
 	while (true) {
 		// TODO add an interpreter for the server commands
 		std::cin >> command;
-		std::cout << command << std::endl;
+		if (command == "/Ready") {
+			log_->info("Performing command");
+			std::string call = "{0|R}";
+			sharedMemory_->SetCoreCall(call);
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }

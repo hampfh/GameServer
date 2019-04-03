@@ -8,7 +8,7 @@ public:
 	void Loop();
 	void Receive();
 	void Send();
-	void Interpret(char* incoming, const int bytes);
+	std::vector<std::string> Interpret(std::string string) const;
 	void Drop() const;
 	std::vector<std::vector<int>> StripCoordinates(std::string string) const;
 
@@ -27,6 +27,6 @@ private:
 
 	State clientState_;
 
-	std::vector<int[2]> clientCommands_;
+	std::string clientCommand_;
 };
 
