@@ -152,29 +152,3 @@ void Client::Drop() const {
 		sharedMemory_->DropSocket(socket_);
 	}
 }
-
-std::vector<std::vector<int>> Client::StripCoordinates(std::string string) const {
-	std::vector<std::vector<int>> coordinates;
-	std::smatch matcher;
-	const std::regex main("\\d+:\\d+");
-
-	// Get coordinates form string
-	// Strip player position
-	while (std::regex_search(string, matcher, main)) {
-		int x = 0, y = 0;
-
-		for (auto segment : matcher) {
-			x = std::stoi(segment.str().substr(0, segment.str().find(":")));
-			y = std::stoi(segment.str().substr(segment.str().find(":") + 1));
-		}
-
-		std::vector<int> coordinate = { x, y };
-		coordinates.push_back(coordinate);
-
-		// Remove this coordinate from the remaining coordinates
-		string = matcher.suffix().str();
-	}
-	return coordinates;
-}
-
-

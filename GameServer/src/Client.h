@@ -10,7 +10,6 @@ public:
 	void Send();
 	std::vector<std::string> Interpret(std::string string) const;
 	void Drop() const;
-	std::vector<std::vector<int>> StripCoordinates(std::string string) const;
 
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
