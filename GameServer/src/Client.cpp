@@ -2,8 +2,7 @@
 #include "Client.h"
 
 Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket), sharedMemory_(shared_memory) {
-	alive_ = true;
-	online_ = true;
+	isOnline_ = true;
 	clientState_ = none;
 
 	loopInterval_ = std::chrono::microseconds(1000);
@@ -24,7 +23,7 @@ Client::~Client() {
 }
 
 void Client::Loop() {
-	while (online_) {
+	while (isOnline_) {
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == sending &&
@@ -60,7 +59,7 @@ void Client::Receive() {
 	// Check if client responds
 	if (bytes <= 0) {
 		// Disconnect client
-		online_ = false;
+		isOnline_ = false;
 		log_->warn("Lost connection to client");
 		// Tell other clients that this client has disconnected
 		sharedMemory_->AppendClientCommands(id_, "D");

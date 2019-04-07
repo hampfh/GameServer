@@ -16,8 +16,7 @@ public:
 	void SetInterval(std::chrono::microseconds microseconds);
 private:
 	int id_;
-	bool online_;
-	bool alive_;
+	bool isOnline_;
 	SOCKET socket_;
 	SharedMemory* sharedMemory_;
 	std::chrono::microseconds loopInterval_;

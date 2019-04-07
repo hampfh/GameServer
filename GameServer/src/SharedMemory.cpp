@@ -5,6 +5,7 @@ SharedMemory::SharedMemory(const std::shared_ptr<spdlog::sinks::rotating_file_si
 	clientsReady_ = 0;
 	serverState_ = none;
 	connectedClients_ = 0;
+	coreCallPerformedCount_ = 0;
 
 	// Setup memory logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -20,9 +21,6 @@ SharedMemory::~SharedMemory() {
 }
 
 void SharedMemory::Ready() {
-
-	int temp = 0;
-
 	while (true) {
 		// If the clients state matches the servers then 
 		// consider the client ready for next state
@@ -32,7 +30,6 @@ void SharedMemory::Ready() {
 			return;
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
-		temp++;
 	}
 }
 
@@ -90,7 +87,6 @@ void SharedMemory::SetState(const State new_state) {
 }
 
 void SharedMemory::AddSocket(const SOCKET new_socket) {
-	int temp = 0;
 	while (true) {
 		if (addSocketMtx_.try_lock()) {
 			// Add newClient to the socketList
@@ -101,12 +97,10 @@ void SharedMemory::AddSocket(const SOCKET new_socket) {
 			return;
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
-		temp++;
 	}
 }
 
 void SharedMemory::DropSocket(const SOCKET socket) {
-	int temp = 0;
 	while (true) {
 		if (dropSocketMtx_.try_lock()) {
 			// Decrease online clients
@@ -119,7 +113,6 @@ void SharedMemory::DropSocket(const SOCKET socket) {
 			return;
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
-		temp++;
 	}
 }
 

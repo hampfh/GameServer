@@ -12,7 +12,7 @@ public:
 
 	void InitializeSending() const;
 	void InitializeReceiving(int select_result);
-	void Interpreter();
+	void Interpreter() const;
 private:
 	bool running_;
 

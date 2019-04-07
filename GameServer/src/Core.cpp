@@ -221,7 +221,7 @@ void Core::InitializeSending() const {
 	log_->warn("Waiting for Client Threads timed out");
 }
 
-void Core::Interpreter() {
+void Core::Interpreter() const {
 	std::string command;
 	while (true) {
 		// TODO add an interpreter for the server commands
