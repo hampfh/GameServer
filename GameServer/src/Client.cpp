@@ -1,10 +1,9 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket), sharedMemory_(shared_memory) {
 	alive_ = true;
 	online_ = true;
-	sharedMemory_ = shared_memory;
 	clientState_ = none;
 
 	loopInterval_ = std::chrono::microseconds(1000);
@@ -41,6 +40,7 @@ void Client::Loop() {
 		// Thread sleep
 		std::this_thread::sleep_for(loopInterval_);
 	}
+
 	log_->info("Thread " + std::to_string(id_) + " exited the loop");
 	Drop();
 	// Delete self
@@ -61,6 +61,11 @@ void Client::Receive() {
 	if (bytes <= 0) {
 		// Disconnect client
 		online_ = false;
+		log_->warn("Lost connection to client");
+		// Tell other clients that this client has disconnected
+		sharedMemory_->AppendClientCommands(id_, "D");
+		clientCommand_.clear();
+		sharedMemory_->Ready();
 		return;
 	}
 
