@@ -5,7 +5,11 @@
 class Core {
 public:
 	Core();
+	void SetupConfig();
+	std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> SetupLogging();
+	void SetupWinSock();
 	~Core();
+
 	void Execute();
 	void Loop();
 	void CleanUp() const;
@@ -24,10 +28,15 @@ private:
 
 	std::shared_ptr<spdlog::logger> log_;
 
+	int timeoutTries_;
+	float timeoutDelay_;
+
 	timeval timeInterval_;
 
 	fd_set workingSet_;
 
 	SharedMemory* sharedMemory_;
+
+	std::chrono::milliseconds clockSpeed_;
 };
 

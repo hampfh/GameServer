@@ -3,6 +3,7 @@
 
 # Ignore log file
 logs/
+*.conf
 
 # User-specific files
 *.suo

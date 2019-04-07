@@ -4,10 +4,83 @@
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 Core::Core() {
-	// ### Setup logging ###
 
-	// Connecting loggers to same output file by
-	// adding log sink to shared memory
+	const auto sharedFileSink = SetupLogging();
+
+	// Instantiate shared memory
+	sharedMemory_ = new SharedMemory(sharedFileSink);
+
+	SetupConfig();
+
+	SetupWinSock();
+
+	running_ = true;
+
+}
+
+void Core::SetupConfig() {
+	log_->info("Loading configuration file...");
+	try {
+		// Load content from conf file
+		scl::config_file file("server.conf", scl::config_file::READ);
+
+		for (auto setting : file) {
+			std::string& selector = setting.first;
+			std::string& value = setting.second;
+
+			if (selector == "clock_speed") {
+				clockSpeed_ = std::chrono::milliseconds(std::stoi(value));
+			}
+			else if(selector == "socket_processing_max") {
+				timeInterval_.tv_usec = std::stoi(value) * 1000;
+			}
+			else if (selector == "timeout_tries") {
+				timeoutTries_ = std::stoi(value);
+			}
+			else if (selector == "timeout_delay") {
+				timeoutDelay_ = std::stof(value);
+			}
+			else if (selector == "start_id_at") {
+				clientId_ = std::stoi(value);
+			}
+		}
+		log_->info("Configurations loaded!");
+	} catch (scl::could_not_open_error&) {
+		log_->warn("No configuration file found, creating conf file...");
+
+		// Create standard values
+
+		scl::config_file file("server.conf", scl::config_file::WRITE);
+		
+		// Generating settings
+		file.put(scl::comment(" --Server settings--"));
+		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
+		file.put("clock_speed", 50);
+		file.put("socket_processing_max", 1);
+		file.put("timeout_tries", 1000);
+		file.put("timeout_delay", 0.5);
+		file.put(scl::comment(" Client settings"));;
+		file.put("start_id_at", 1);
+
+		// Create file
+		file.write_changes();
+		//and close it to save memory.
+		file.close();
+
+		log_->info("Configuration file created!");
+
+		// Assigning standard values to server
+		clockSpeed_ = std::chrono::milliseconds(50);
+		timeInterval_.tv_usec = 1000;
+		timeoutTries_ = 1000;
+		timeoutDelay_ = 0.5f;
+		// Client related
+		clientId_ = 1;
+	}
+}
+
+std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> Core::SetupLogging() {
+	// Shared file sink
 	const auto sharedFileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
 
 	// Setup core logger
@@ -21,11 +94,10 @@ Core::Core() {
 	spdlog::flush_on(spdlog::level::info);
 	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
 
-	// ### Setup winsock ###
+	return sharedFileSink;
+}
 
-	// Initialize variables
-	running_ = false;
-	clientId_ = 0;
+void Core::SetupWinSock() {
 
 	const int port = 15000;
 
@@ -75,18 +147,9 @@ Core::Core() {
 
 	log_->info("Server port is " + std::to_string(port));
 
-	// Instantiate shared memory
-	sharedMemory_ = new SharedMemory(sharedFileSink);
-
 	// Assign
 	sharedMemory_->AddSocketList(master);
-
-	// Other assignments
-	timeInterval_.tv_usec = 1000;
-	running_ = true;
-
 }
-
 
 Core::~Core() {
 	// Clean up server
@@ -135,7 +198,7 @@ void Core::Loop() {
 	}
 
 	// Default sleep time between responses
-	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	std::this_thread::sleep_for(std::chrono::milliseconds(clockSpeed_));
 }
 
 void Core::CleanUp() const {
@@ -190,46 +253,68 @@ void Core::InitializeReceiving(const int select_result) {
 		}
 	}
 
-	for (int i = 0; i < 1000000; i++) {
+	for (int i = 0; i < timeoutTries_; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(awaiting);
 			return;
 		}
 
-		// Sleep for half a millisecond
-		std::this_thread::sleep_for(std::chrono::microseconds(500));
+		// Sleep for half a millisecond, convert milliseconds to microseconds
+		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(timeoutDelay_ * 1000)));
 	}
 	sharedMemory_->SetState(awaiting);
-	log_->warn("Waiting for Client Threads timed out");
+	log_->warn("Timed out while waiting for client thread");
 }
 
 void Core::InitializeSending() const {
 	sharedMemory_->SetState(sending);
 
-	for (int i = 0; i < 1000000; i++) {
+	for (int i = 0; i < timeoutTries_; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(awaiting);
 			return;
 		}
-		// Sleep for half a millisecond
-		std::this_thread::sleep_for(std::chrono::microseconds(500));
+		// Sleep for half a millisecond, convert milliseconds to microseconds
+		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(timeoutDelay_ * 1000)));
 	}
 
 	sharedMemory_->SetState(awaiting);
-	log_->warn("Waiting for Client Threads timed out");
+	log_->warn("Timed out while waiting for client thread");
 }
 
 void Core::Interpreter() const {
 	std::string command;
 	while (true) {
-		// TODO add an interpreter for the server commands
-		std::cin >> command;
-		if (command == "/Ready") {
-			log_->info("Performing command");
-			std::string call = "{0|R}";
-			sharedMemory_->SetCoreCall(call);
+
+		std::vector<std::string> part;
+
+		std::getline(std::cin, command);
+		
+		const std::regex regexCommand("[^ ]+");
+		std::smatch matcher;
+
+		while (std::regex_search(command, matcher, regexCommand)) {
+			if (matcher[0].str()[0] != '/') {
+				// Not a command, break
+				break;
+			}
+			for (auto addSegment : matcher) {
+				// Append the commands to the list
+				part.push_back(addSegment.str());
+			}
+			command = matcher.suffix().str();
+		}
+
+		if (!part.empty()) {
+			if (part[0] == "/Start") {
+				log_->info("Performing command");
+				sharedMemory_->AddCoreCall(0, Command::start);
+			}
+			else if (part[0] == "/Kick") {
+				sharedMemory_->AddCoreCall(std::stoi(part[1]), Command::kick);
+			}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}

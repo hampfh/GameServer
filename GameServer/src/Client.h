@@ -8,6 +8,7 @@ public:
 	void Loop();
 	void Receive();
 	void Send();
+	void CoreCallListener();
 	std::vector<std::string> Interpret(std::string string) const;
 	void Drop() const;
 
@@ -26,5 +27,6 @@ private:
 	State clientState_;
 
 	std::string clientCommand_;
+	std::string pendingSend_;
 };
 

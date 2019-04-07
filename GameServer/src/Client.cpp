@@ -24,6 +24,9 @@ Client::~Client() {
 
 void Client::Loop() {
 	while (isOnline_) {
+		// Listen for calls from core
+		CoreCallListener();
+
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (sharedMemory_->GetServerState() == sending &&
@@ -82,15 +85,11 @@ void Client::Receive() {
 }
 
 void Client::Send() {
-	std::string outgoing;
+	// Append potential command from core
+	std::string outgoing = pendingSend_;
 
 	// Iterate through all clients
 	auto queue = sharedMemory_->GetClientCommands();
-	std::string coreCall = sharedMemory_->GetCoreCall();
-	if (!coreCall.empty()) {
-		outgoing = coreCall;
-		sharedMemory_->PerformedCoreCall();
-	}
 
 	for (auto& client : queue) {
 
@@ -110,6 +109,44 @@ void Client::Send() {
 	clientState_ = sending;
 	sharedMemory_->Ready();
 
+	// Reset pending send
+	pendingSend_.clear();
+}
+
+void Client::CoreCallListener() {
+
+	// TODO make corecall work
+
+	// Get core call
+	std::vector<std::vector<int>> coreCall = sharedMemory_->GetCoreCall();
+	if (!coreCall.empty()) {
+		pendingSend_.append("{0|");
+		for (auto frame : coreCall) {
+			// Check if call is meant for this client or is a broadcast
+			if (frame[0] == 0 &&
+				(frame[1] == id_ || frame[1] == 0)) {
+
+				const int command = frame[2];
+
+				// Interpret command
+				if (command == Command::start) {
+					pendingSend_.append("S");
+				}
+				else if (command == Command::kick) {
+					isOnline_ = false;
+				}
+			}
+		}
+
+		pendingSend_.append("}");
+
+		// Clear outgoing if no information
+		if (pendingSend_.length() <= 4) {
+			pendingSend_.clear();
+		}
+
+		sharedMemory_->PerformedCoreCall();
+	}
 }
 
 std::vector<std::string> Client::Interpret(std::string string) const {

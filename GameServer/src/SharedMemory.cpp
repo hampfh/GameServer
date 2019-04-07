@@ -54,15 +54,23 @@ void SharedMemory::AppendClientCommands(const int id, std::string command) {
 	}
 }
 
-void SharedMemory::SetCoreCall(std::string& command) {
-	// Add the clients coordinates to shared memory
-	coreCall_ = command;
+void SharedMemory::AddCoreCall(const int receiver, const int command) {
+	// Add call
+	// Sender, Receiver, Command
+	coreCall_.push_back({ 0, receiver, command });
 }
 
 void SharedMemory::PerformedCoreCall() {
-	coreCallPerformedCount_++;
-	if (coreCallPerformedCount_ == connectedClients_) {
-		ResetCoreCall();
+	while (true) {
+		if (coreCallMtx_.try_lock()) {
+			coreCallPerformedCount_++;
+			if (coreCallPerformedCount_ == connectedClients_) {
+				ResetCoreCall();
+			}
+			coreCallMtx_.unlock();
+			return;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
 }
 

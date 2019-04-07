@@ -9,6 +9,11 @@ enum State {
 	sending = 3
 };
 
+enum Command {
+	start = 0,
+	kick = 1
+};
+
 class SharedMemory {
 public:
 	SharedMemory(std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> shared_file_sink);
@@ -17,11 +22,11 @@ public:
 	void Ready();
 
 	void AppendClientCommands(int id, std::string command);
-	void SetCoreCall(std::string& command);
+	void AddCoreCall(int receiver, int command);
 	void ResetCoreCall();
 	void PerformedCoreCall();
 	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
-	std::string GetCoreCall() const { return coreCall_; };
+	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; };
 	void Reset();
 
 	void SetState(State new_state);
@@ -48,9 +53,10 @@ private:
 	std::mutex addCommandMtx_;
 	std::mutex addSocketMtx_;
 	std::mutex dropSocketMtx_;
+	std::mutex coreCallMtx_;
 
 	std::vector<std::string> commandQueue_;
-	std::string coreCall_;
+	std::vector<std::vector<int>> coreCall_;
 	int coreCallPerformedCount_;
 public:
 	const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink;
