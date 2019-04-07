@@ -1,10 +1,9 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket), sharedMemory_(shared_memory) {
 	alive_ = true;
 	online_ = true;
-	sharedMemory_ = shared_memory;
 	clientState_ = none;
 
 	loopInterval_ = std::chrono::microseconds(1000);
@@ -21,12 +20,7 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 }
 
 Client::~Client() {
-	// Terminate client thread
-	try {
-		//std::terminate();
-	} catch (...) {
-		log_->error("Termination problem: ");
-	}
+	clientCommand_.clear();
 }
 
 void Client::Loop() {
@@ -46,6 +40,7 @@ void Client::Loop() {
 		// Thread sleep
 		std::this_thread::sleep_for(loopInterval_);
 	}
+
 	log_->info("Thread " + std::to_string(id_) + " exited the loop");
 	Drop();
 	// Delete self
@@ -53,6 +48,7 @@ void Client::Loop() {
 }
 
 void Client::Receive() {
+
 	char incoming[1024];
 
 	// Clear the storage before usage
@@ -65,51 +61,51 @@ void Client::Receive() {
 	if (bytes <= 0) {
 		// Disconnect client
 		online_ = false;
+		log_->warn("Lost connection to client");
+		// Tell other clients that this client has disconnected
+		sharedMemory_->AppendClientCommands(id_, "D");
+		clientCommand_.clear();
+		sharedMemory_->Ready();
 		return;
 	}
 
 	// Interpret response
-	Interpret(incoming, bytes);
+
+	clientCommand_ = std::string(incoming, strlen(incoming));
 
 	// Add to shared memory and mark as ready
-	sharedMemory_->Add(coordinates_);
-	clientState_ = receiving;
+	sharedMemory_->AppendClientCommands(id_, clientCommand_);
 
-	// Clear client coordinates
-	coordinates_.clear();
+	clientCommand_.clear();
+
+	sharedMemory_->Ready();
+	clientState_ = receiving;
 }
 
 void Client::Send() {
-	std::string outgoing = (alive_ ? "A" : "D");
+	std::string outgoing;
 
 	// Iterate through all clients
-	std::string clientCoordinates = "";
-	auto coordinates = sharedMemory_->GetCoordinates();
+	auto queue = sharedMemory_->GetClientCommands();
+	std::string coreCall = sharedMemory_->GetCoreCall();
+	if (!coreCall.empty()) {
+		outgoing = coreCall;
+		sharedMemory_->PerformedCoreCall();
+	}
 
-	for (auto &client : sharedMemory_->GetCoordinates()) {
-		clientCoordinates.append("<");
-		for (auto &coordinate : client) {
-			// Add coordinate separator
-			clientCoordinates.append("|");
-			// Append separator
+	for (auto& client : queue) {
 
-			clientCoordinates.append(
-				std::to_string(coordinate[0]) +
-				":" +
-				std::to_string(coordinate[1])
-			);
+		// Skip command if it comes from the client itself
+		if (Interpret(client)[0] == std::to_string(id_)) {
+			continue;
 		}
-		clientCoordinates.append("|>");
 
-		// Add client coordinates to the outgoing message
-		outgoing.append(clientCoordinates);
-		// Reset client string
-		clientCoordinates = "";
+		outgoing.append(client);
 	}
 
 	// Send payload
 	// TODO encode output using compressor tool
-	send(socket_, outgoing.c_str(), outgoing.size() + 1, 0);
+	send(socket_, outgoing.c_str(), static_cast<int>(outgoing.size()) + 1, 0);
 
 	// Client ready
 	clientState_ = sending;
@@ -117,34 +113,22 @@ void Client::Send() {
 
 }
 
-void Client::Interpret(char* incoming, const int bytes) {
-	// Convert incoming to command
-	std::string command = std::string(incoming, bytes);
-	std::string copy = command;
-	const std::regex main("\\d+:\\d+");
+std::vector<std::string> Client::Interpret(std::string string) const {
+
+	std::vector<std::string> matches;
+
+	const std::regex regexCommand("[^\\|{}\\[\\]]+");
 	std::smatch mainMatcher;
 
-	// Check if character has died
-	if (command[0] == 'D' && alive_) {
-		log_->warn("Client#" + std::to_string(socket_) + " died");
-		alive_ = false;
-	}
-
-	// Strip player position
-	while (std::regex_search(copy, mainMatcher, main)) {
-		int x = 0, y = 0;
-
-		for (auto segment : mainMatcher) {
-			x = std::stoi(segment.str().substr(0, segment.str().find(":")));
-			y = std::stoi(segment.str().substr(segment.str().find(":") + 1));
+	while (std::regex_search(string, mainMatcher, regexCommand)) {
+		for (auto addSegment : mainMatcher) {
+			// Append the commands to the list
+			matches.push_back(addSegment);
 		}
-
-		std::vector<int> coordinate = {x, y};
-		coordinates_.push_back(coordinate);
-
-		// Remove this coordinate from the remaining coordinates
-		copy = mainMatcher.suffix().str();
+		string = mainMatcher.suffix().str();
 	}
+
+	return matches;
 }
 
 
@@ -164,8 +148,33 @@ void Client::Drop() const {
 	if (socket_ != 0) {
 		log_->info("Client#" + std::to_string(socket_) + " was dropped");
 
+		spdlog::drop("Client#" + std::to_string(socket_));
 		sharedMemory_->DropSocket(socket_);
 	}
+}
+
+std::vector<std::vector<int>> Client::StripCoordinates(std::string string) const {
+	std::vector<std::vector<int>> coordinates;
+	std::smatch matcher;
+	const std::regex main("\\d+:\\d+");
+
+	// Get coordinates form string
+	// Strip player position
+	while (std::regex_search(string, matcher, main)) {
+		int x = 0, y = 0;
+
+		for (auto segment : matcher) {
+			x = std::stoi(segment.str().substr(0, segment.str().find(":")));
+			y = std::stoi(segment.str().substr(segment.str().find(":") + 1));
+		}
+
+		std::vector<int> coordinate = { x, y };
+		coordinates.push_back(coordinate);
+
+		// Remove this coordinate from the remaining coordinates
+		string = matcher.suffix().str();
+	}
+	return coordinates;
 }
 
 

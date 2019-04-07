@@ -31,32 +31,51 @@ void SharedMemory::Ready() {
 			clientStateMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 		temp++;
 	}
 }
 
-void SharedMemory::Add(std::vector<std::vector<int>> client_coordinates) {
-	int temp = 0;
+void SharedMemory::AppendClientCommands(const int id, std::string command) {
 	while (true) {
-		if (addCoordinateMtx_.try_lock()) {
+		if (addCommandMtx_.try_lock()) {
+
+			// Encapsulate command inside a socket block
+			command.insert(0, "{" + std::to_string(id) + "|");
+			command.append("}");
+			
 			// Add the clients coordinates to shared memory
-			coordinates_.push_back(client_coordinates);
+			commandQueue_.push_back(command);
+
+			// TODO Add a storage that saves all past commands to make it possible for clients to connect later
 
 			// Marks the clients as ready
-			clientsReady_++;
-			addCoordinateMtx_.unlock();
+			addCommandMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
-		temp++;
 	}
+}
+
+void SharedMemory::SetCoreCall(std::string& command) {
+	// Add the clients coordinates to shared memory
+	coreCall_ = command;
+}
+
+void SharedMemory::PerformedCoreCall() {
+	coreCallPerformedCount_++;
+	if (coreCallPerformedCount_ == connectedClients_) {
+		ResetCoreCall();
+	}
+}
+
+void SharedMemory::ResetCoreCall() {
+	coreCallPerformedCount_ = 0;
+	coreCall_.clear();
 }
 
 void SharedMemory::Reset() {
-	coordinates_.clear();
+	commandQueue_.clear();
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) {
@@ -81,7 +100,6 @@ void SharedMemory::AddSocket(const SOCKET new_socket) {
 			addSocketMtx_.unlock();
 			return;
 		}
-		log_->info("Queueing for ready call");
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 		temp++;
 	}

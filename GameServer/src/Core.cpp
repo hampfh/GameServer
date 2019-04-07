@@ -135,7 +135,7 @@ void Core::Loop() {
 	}
 
 	// Default sleep time between responses
-	std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 void Core::CleanUp() const {
@@ -148,7 +148,6 @@ void Core::InitializeReceiving(const int select_result) {
 	sharedMemory_->SetState(receiving);
 
 	// Clear the coordinate storage
-	// TODO Remake system to only send changes
 	sharedMemory_->Reset();
 
 	for (int i = 0; i < select_result; i++) {
@@ -191,12 +190,13 @@ void Core::InitializeReceiving(const int select_result) {
 		}
 	}
 
-	for (int i = 0; i < 100000000; i++) {
+	for (int i = 0; i < 1000000; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(awaiting);
 			return;
 		}
+
 		// Sleep for half a millisecond
 		std::this_thread::sleep_for(std::chrono::microseconds(500));
 	}
@@ -207,7 +207,7 @@ void Core::InitializeReceiving(const int select_result) {
 void Core::InitializeSending() const {
 	sharedMemory_->SetState(sending);
 
-	for (int i = 0; i < 100000000; i++) {
+	for (int i = 0; i < 1000000; i++) {
 		// Check if all clients have received their payload
 		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
 			sharedMemory_->SetState(awaiting);
@@ -216,6 +216,7 @@ void Core::InitializeSending() const {
 		// Sleep for half a millisecond
 		std::this_thread::sleep_for(std::chrono::microseconds(500));
 	}
+
 	sharedMemory_->SetState(awaiting);
 	log_->warn("Waiting for Client Threads timed out");
 }
@@ -225,7 +226,11 @@ void Core::Interpreter() {
 	while (true) {
 		// TODO add an interpreter for the server commands
 		std::cin >> command;
-		std::cout << command << std::endl;
+		if (command == "/Ready") {
+			log_->info("Performing command");
+			std::string call = "{0|R}";
+			sharedMemory_->SetCoreCall(call);
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
