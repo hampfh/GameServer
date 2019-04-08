@@ -2,11 +2,11 @@
 #include "SharedMemory.h"
 
 /**
-    Client.cpp
+    Client.h
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 1.1 08/04/2019
+    @version 0.4 08/04/2019
 */
 
 class Client {

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <ctime>
 #include <string>
+#include <mutex>
 
 // Logging library
 #include "spdlog/spdlog.h";

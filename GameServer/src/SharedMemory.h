@@ -1,6 +1,13 @@
 #pragma once
-#include <mutex>
 #include "pch.h"
+
+/**
+    SharedMemory.h
+    Purpose: This class holds data and information accessible for all threads
+
+    @author Hampus Hallkvist
+    @version 0.4 08/04/2019
+*/
 
 enum State {
 	none = 0,

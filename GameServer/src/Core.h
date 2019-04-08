@@ -1,6 +1,13 @@
 #pragma once
-#include "Client.h"
 #include "SharedMemory.h"
+
+/**
+    Core.h
+    Purpose: Main thread. This thread controls all other threads and delegates work 
+
+    @author Hampus Hallkvist
+    @version 0.4 08/04/2019
+*/
 
 class Core {
 public:
