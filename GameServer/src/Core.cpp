@@ -252,7 +252,7 @@ void Core::InitializeReceiving(const int select_result) {
 
 			send(newClient, std::to_string(clientId_).c_str(), static_cast<int>(std::to_string(clientId_).size()) + 1, 0);
 			// wait a little bit before sending the next message
-			std::this_thread::sleep_for(std::chrono::microseconds(10));
+			std::this_thread::sleep_for(std::chrono::microseconds(1));
 
 			send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
 			// Console message
