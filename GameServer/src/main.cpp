@@ -1,6 +1,14 @@
 #include "pch.h"
 #include "Core.h"
 
+/**
+    main.cpp
+    Purpose: Main file. Creates a core class and an interpreter
+
+    @author Hampus Hallkvist
+    @version 0.4 08/04/2019
+*/
+
 int main() {
 	Core core;
 
