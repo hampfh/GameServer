@@ -157,7 +157,7 @@ void Core::SetupWinSock() {
 	log_->info("Server port is " + std::to_string(port));
 
 	// Assign
-	sharedMemory_->AddSocketList(master);
+	sharedMemory_->SetSockets(master);
 }
 
 void Core::Execute() {
@@ -217,7 +217,7 @@ void Core::InitializeReceiving(const int select_result) {
 	sharedMemory_->SetState(receiving);
 
 	// Clear the coordinate storage
-	sharedMemory_->Reset();
+	sharedMemory_->ResetCommandQueue();
 
 	for (int i = 0; i < select_result; i++) {
 

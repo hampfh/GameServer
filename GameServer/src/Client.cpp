@@ -29,13 +29,13 @@ void Client::Loop() {
 
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
-		if (sharedMemory_->GetServerState() == sending &&
+		if (sharedMemory_->GetState() == sending &&
 			clientState_ != sending) {
 			Send();
 		}
 		// Perform receiving operation if serverApp is ready and
 		// the client has not already performed it
-		else if (sharedMemory_->GetServerState() == receiving &&
+		else if (sharedMemory_->GetState() == receiving &&
 			clientState_ != receiving) {
 			Receive();
 		}
