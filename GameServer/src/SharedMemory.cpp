@@ -17,7 +17,7 @@ SharedMemory::SharedMemory(const std::shared_ptr<spdlog::sinks::rotating_file_si
 }
 
 SharedMemory::~SharedMemory() {
-	Reset();
+	ResetCommandQueue();
 }
 
 void SharedMemory::Ready() {
@@ -55,7 +55,7 @@ void SharedMemory::AppendClientCommands(const int id, std::string command) {
 }
 
 void SharedMemory::AddCoreCall(const int receiver, const int command) {
-	// Add call
+	// Create and append call
 	// Sender, Receiver, Command
 	coreCall_.push_back({ 0, receiver, command });
 }
@@ -77,21 +77,6 @@ void SharedMemory::PerformedCoreCall() {
 void SharedMemory::ResetCoreCall() {
 	coreCallPerformedCount_ = 0;
 	coreCall_.clear();
-}
-
-void SharedMemory::Reset() {
-	commandQueue_.clear();
-}
-
-void SharedMemory::SetConnectedClients(const int connected_clients) {
-	connectedClients_ = connected_clients;
-}
-
-
-void SharedMemory::SetState(const State new_state) {
-	serverState_ = new_state;
-	// Reset clients ready when changing state
-	clientsReady_ = 0;
 }
 
 void SharedMemory::AddSocket(const SOCKET new_socket) {
@@ -124,6 +109,21 @@ void SharedMemory::DropSocket(const SOCKET socket) {
 	}
 }
 
-void SharedMemory::AddSocketList(const fd_set list) {
+void SharedMemory::ResetCommandQueue() {
+	commandQueue_.clear();
+}
+
+void SharedMemory::SetConnectedClients(const int connected_clients) {
+	connectedClients_ = connected_clients;
+}
+
+
+void SharedMemory::SetState(const State new_state) {
+	serverState_ = new_state;
+	// Reset clients ready when changing state
+	clientsReady_ = 0;
+}
+
+void SharedMemory::SetSockets(const fd_set list) {
 	sockets_ = list;
 }

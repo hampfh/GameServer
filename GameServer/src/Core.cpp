@@ -18,6 +18,10 @@ Core::Core() {
 
 }
 
+Core::~Core() {
+	
+}
+
 void Core::SetupConfig() {
 	log_->info("Loading configuration file...");
 	try {
@@ -60,7 +64,7 @@ void Core::SetupConfig() {
 		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
-		file.put("timeout_tries", 1000);
+		file.put("timeout_tries", 30);
 		file.put("timeout_delay", 0.5);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
@@ -76,7 +80,7 @@ void Core::SetupConfig() {
 		// Assigning standard values to server
 		clockSpeed_ = std::chrono::milliseconds(50);
 		timeInterval_.tv_usec = 1000;
-		timeoutTries_ = 1000;
+		timeoutTries_ = 30;
 		timeoutDelay_ = 0.5f;
 		// Client related
 		clientId_ = 1;
@@ -153,11 +157,7 @@ void Core::SetupWinSock() {
 	log_->info("Server port is " + std::to_string(port));
 
 	// Assign
-	sharedMemory_->AddSocketList(master);
-}
-
-Core::~Core() {
-	
+	sharedMemory_->SetSockets(master);
 }
 
 void Core::Execute() {
@@ -217,7 +217,7 @@ void Core::InitializeReceiving(const int select_result) {
 	sharedMemory_->SetState(receiving);
 
 	// Clear the coordinate storage
-	sharedMemory_->Reset();
+	sharedMemory_->ResetCommandQueue();
 
 	for (int i = 0; i < select_result; i++) {
 
