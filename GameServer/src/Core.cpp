@@ -18,6 +18,10 @@ Core::Core() {
 
 }
 
+Core::~Core() {
+	
+}
+
 void Core::SetupConfig() {
 	log_->info("Loading configuration file...");
 	try {
@@ -154,10 +158,6 @@ void Core::SetupWinSock() {
 
 	// Assign
 	sharedMemory_->AddSocketList(master);
-}
-
-Core::~Core() {
-	
 }
 
 void Core::Execute() {
