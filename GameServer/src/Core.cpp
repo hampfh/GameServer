@@ -157,9 +157,7 @@ void Core::SetupWinSock() {
 }
 
 Core::~Core() {
-	// Clean up server
-	WSACleanup();
-	delete sharedMemory_;
+	
 }
 
 void Core::Execute() {
@@ -207,6 +205,9 @@ void Core::Loop() {
 }
 
 void Core::CleanUp() const {
+	// Clean up server
+	WSACleanup();
+	delete sharedMemory_;
 	delete this;
 }
 
