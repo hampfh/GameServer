@@ -1,5 +1,6 @@
 #pragma once
 #include "SharedMemory.h"
+#include "Client.h"
 
 /**
     Core.h
