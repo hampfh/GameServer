@@ -22,8 +22,10 @@ private:
 
 	SOCKET listening_;
 
-	int seed_;
 	int clientId_;
+	int maxConnections_;
+
+	int seed_;
 	State serverState_ = receiving;
 
 	std::shared_ptr<spdlog::logger> log_;

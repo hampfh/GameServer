@@ -115,8 +115,6 @@ void Client::Send() {
 
 void Client::CoreCallListener() {
 
-	// TODO make corecall work
-
 	// Get core call
 	std::vector<std::vector<int>> coreCall = sharedMemory_->GetCoreCall();
 	if (!coreCall.empty()) {
@@ -125,6 +123,10 @@ void Client::CoreCallListener() {
 			// Check if call is meant for this client or is a broadcast
 			if (frame[0] == 0 &&
 				(frame[1] == id_ || frame[1] == 0)) {
+
+				if (frame.size() != 3) {
+					continue;
+				}
 
 				const int command = frame[2];
 
@@ -142,6 +144,7 @@ void Client::CoreCallListener() {
 
 		// Clear outgoing if no information
 		if (pendingSend_.length() <= 4) {
+			log_->warn("Cleared pendingSend");
 			pendingSend_.clear();
 		}
 

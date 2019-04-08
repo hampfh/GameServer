@@ -43,6 +43,9 @@ void Core::SetupConfig() {
 			else if (selector == "start_id_at") {
 				clientId_ = std::stoi(value);
 			}
+			else if (selector == "max_connections") {
+				maxConnections_ = std::stoi(value);
+			}
 		}
 		log_->info("Configurations loaded!");
 	} catch (scl::could_not_open_error&) {
@@ -61,6 +64,7 @@ void Core::SetupConfig() {
 		file.put("timeout_delay", 0.5);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
+		file.put("max_connections", 10);
 
 		// Create file
 		file.write_changes();
@@ -76,6 +80,7 @@ void Core::SetupConfig() {
 		timeoutDelay_ = 0.5f;
 		// Client related
 		clientId_ = 1;
+		maxConnections_ = 10;
 	}
 }
 
@@ -221,6 +226,13 @@ void Core::InitializeReceiving(const int select_result) {
 
 			// Check for new connections
 			const SOCKET newClient = accept(listening_, nullptr, nullptr);
+
+			// Check if max clients is reached
+			if (maxConnections_ <= sharedMemory_->GetConnectedClients()) {
+				// Immediately close socket if max connections is reached
+				closesocket(newClient);
+				break;
+			}
 
 			sharedMemory_->AddSocket(newClient);
 
