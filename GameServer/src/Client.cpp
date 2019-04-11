@@ -1,18 +1,19 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : id_(id), socket_(socket), sharedMemory_(shared_memory) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : socket_(socket), sharedMemory_(shared_memory), id(id) {
+
 	isOnline_ = true;
-	clientState_ = none;
+	state_ = none;
 
 	loopInterval_ = std::chrono::microseconds(1000);
 	
 	// Setup client logger
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedMemory_->sharedFileSink);
+	sinks.push_back(sharedMemory_->GetFileSink());
 	log_ = std::make_shared<spdlog::logger>("Client#" + std::to_string(socket), begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
+	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 	
 	log_->info("Assigned ID: " + std::to_string(id));
@@ -29,24 +30,26 @@ void Client::Loop() {
 
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
-		if (sharedMemory_->GetState() == sending &&
-			clientState_ != sending) {
+		if (*lobbyState_ == sending &&
+			state_ != sending) {
+			log_->info("Started sending");
 			Send();
 		}
 		// Perform receiving operation if serverApp is ready and
 		// the client has not already performed it
-		else if (sharedMemory_->GetState() == receiving &&
-			clientState_ != receiving) {
+		else if (*lobbyState_ == receiving &&
+			state_ != receiving) {
+			log_->info("Started receiving");
 			Receive();
 		}
 		// Thread sleep
 		std::this_thread::sleep_for(loopInterval_);
 	}
 
-	log_->info("Thread " + std::to_string(id_) + " exited the loop");
-	Drop();
-	// Delete self
-	delete this;
+	log_->info("Thread " + std::to_string(id) + " exited the loop");
+	RequestDrop();
+
+	// Object will be delete by it's parent (lobby)
 }
 
 void Client::Receive() {
@@ -65,23 +68,19 @@ void Client::Receive() {
 		isOnline_ = false;
 		log_->warn("Lost connection to client");
 		// Tell other clients that this client has disconnected
-		sharedMemory_->AppendClientCommands(id_, "D");
-		clientCommand_.clear();
-		sharedMemory_->Ready();
+		clientCommand_ = "{" + std::to_string(id) + "|D}";
+		state_ = receiving;
 		return;
 	}
 
-	// Interpret response
-
 	clientCommand_ = std::string(incoming, strlen(incoming));
 
-	// Add to shared memory and mark as ready
-	sharedMemory_->AppendClientCommands(id_, clientCommand_);
+	// Encapsulate command inside a socket block
+	clientCommand_.insert(0, "{" + std::to_string(id) + "|");
+	clientCommand_.append("}");
 
-	clientCommand_.clear();
+	state_ = receiving;
 
-	sharedMemory_->Ready();
-	clientState_ = receiving;
 }
 
 void Client::Send() {
@@ -89,12 +88,12 @@ void Client::Send() {
 	std::string outgoing = pendingSend_;
 
 	// Iterate through all clients
-	auto queue = sharedMemory_->GetClientCommands();
+	auto queue = outgoingCommands_;
 
 	for (auto& client : queue) {
 
 		// Skip command if it comes from the client itself
-		if (Interpret(client)[0] == std::to_string(id_)) {
+		if (Interpret(client)[0] == std::to_string(id)) {
 			continue;
 		}
 
@@ -106,8 +105,7 @@ void Client::Send() {
 	send(socket_, outgoing.c_str(), static_cast<int>(outgoing.size()) + 1, 0);
 
 	// Client ready
-	clientState_ = sending;
-	sharedMemory_->Ready();
+	state_ = sending;
 
 	// Reset pending send
 	pendingSend_.clear();
@@ -122,7 +120,7 @@ void Client::CoreCallListener() {
 		for (auto frame : coreCall) {
 			// Check if call is meant for this client or is a broadcast
 			if (frame[0] == 0 &&
-				(frame[1] == id_ || frame[1] == 0)) {
+				(frame[1] == id || frame[1] == 0)) {
 
 				if (frame.size() != 3) {
 					continue;
@@ -147,8 +145,6 @@ void Client::CoreCallListener() {
 			log_->warn("Cleared pendingSend");
 			pendingSend_.clear();
 		}
-
-		sharedMemory_->PerformedCoreCall();
 	}
 }
 
@@ -170,24 +166,40 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 	return matches;
 }
 
+void Client::RequestDrop() const {
+	if (socket_ != 0) {
+		log_->info("Client#" + std::to_string(socket_) + " was dropped");
+
+		spdlog::drop("Client#" + std::to_string(socket_));
+
+		// Drop client globally
+		sharedMemory_->DropSocket(socket_);
+
+		// Add self to dropList in lobby
+		dropList_->push_back(this->id);
+	}
+}
 
 void Client::SetSocket(const SOCKET socket) {
 	socket_ = socket;
 }
 
 void Client::SetId(const int id) {
-	id_ = id;
+	this->id = id;
 }
 
 void Client::SetInterval(const std::chrono::microseconds microseconds) {
 	loopInterval_ = microseconds;
 }
 
-void Client::Drop() const {
-	if (socket_ != 0) {
-		log_->info("Client#" + std::to_string(socket_) + " was dropped");
+void Client::SetLobbyStateReference(State* lobby_state) {
+	lobbyState_ = lobby_state;
+}
 
-		spdlog::drop("Client#" + std::to_string(socket_));
-		sharedMemory_->DropSocket(socket_);
-	}
+void Client::SetLobbyDropReference(std::vector<int>* drop_list) {
+	dropList_ = drop_list;
+}
+
+void Client::SetState(const State state) {
+	state_ = state;
 }

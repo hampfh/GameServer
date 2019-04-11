@@ -4,15 +4,27 @@
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 Core::Core() {
+	clientIndex_ = 0;
+	maxConnections_ = 0;
+	seed_ = 0;
 
-	const auto sharedFileSink = SetupLogging();
+	// Initialization
+	sharedMemory_ = new SharedMemory();
 
-	// Instantiate shared memory
-	sharedMemory_ = new SharedMemory(sharedFileSink);
+	// Setup core logger
+	std::vector<spdlog::sink_ptr> sinks;
+	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+	sinks.push_back(sharedMemory_->GetFileSink());
+	log_ = std::make_shared<spdlog::logger>("Core", begin(sinks), end(sinks));
+	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	register_logger(log_);
 
 	SetupConfig();
 
 	SetupWinSock();
+
+	// Create main lobby
+	sharedMemory_->CreateMainLobby();
 
 	running_ = true;
 
@@ -33,19 +45,19 @@ void Core::SetupConfig() {
 			std::string& value = setting.second;
 
 			if (selector == "clock_speed") {
-				clockSpeed_ = std::chrono::milliseconds(std::stoi(value));
+				sharedMemory_->SetClockSpeed(std::stoi(value));
 			}
 			else if(selector == "socket_processing_max") {
 				timeInterval_.tv_usec = std::stoi(value) * 1000;
 			}
 			else if (selector == "timeout_tries") {
-				timeoutTries_ = std::stoi(value);
+				sharedMemory_->SetTimeoutTries(std::stoi(value));
 			}
 			else if (selector == "timeout_delay") {
-				timeoutDelay_ = std::stof(value);
+				sharedMemory_->SetTimeoutDelay(std::stof(value));
 			}
 			else if (selector == "start_id_at") {
-				clientId_ = std::stoi(value);
+				clientIndex_ = std::stoi(value);
 			}
 			else if (selector == "max_connections") {
 				maxConnections_ = std::stoi(value);
@@ -78,32 +90,14 @@ void Core::SetupConfig() {
 		log_->info("Configuration file created!");
 
 		// Assigning standard values to server
-		clockSpeed_ = std::chrono::milliseconds(50);
+		sharedMemory_->SetClockSpeed(50);
 		timeInterval_.tv_usec = 1000;
-		timeoutTries_ = 30;
-		timeoutDelay_ = 0.5f;
+		sharedMemory_->SetTimeoutTries(30);
+		sharedMemory_->SetTimeoutDelay(0.5f);
 		// Client related
-		clientId_ = 1;
+		clientIndex_ = 1;
 		maxConnections_ = 10;
 	}
-}
-
-std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> Core::SetupLogging() {
-	// Shared file sink
-	const auto sharedFileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
-
-	// Setup core logger
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedFileSink);
-	log_ = std::make_shared<spdlog::logger>("Core", begin(sinks), end(sinks));
-	register_logger(log_);
-
-	// Global spdlog settings
-	spdlog::flush_on(spdlog::level::info);
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
-
-	return sharedFileSink;
 }
 
 void Core::SetupWinSock() {
@@ -178,46 +172,25 @@ void Core::Loop() {
 	// Get socket list size
 	const int result = select(0, &workingSet_, nullptr, nullptr, &timeInterval_);
 
-	// Receiving state
-	if (serverState_ == receiving) {
-		InitializeReceiving(result);
-	}
-	// Sending state
-	else if (serverState_ == sending) {
-		InitializeSending();
-	}
-
-	// Swap state
-	switch (serverState_) {
-	case receiving:
-		serverState_ = sending;
-		break;
-	case sending:
-		serverState_ = receiving;
-		break;
-	default:
-		serverState_ = receiving;
-		break;
-	}
+	// Add new connection to main lobby
+	InitializeReceiving(result);
+	
 
 	// Default sleep time between responses
-	std::this_thread::sleep_for(std::chrono::milliseconds(clockSpeed_));
+	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
 
 void Core::CleanUp() const {
 	// Clean up server
 	WSACleanup();
-	delete sharedMemory_;
+
+	// Delete sharedMemory
+
 	delete this;
 }
 
 
 void Core::InitializeReceiving(const int select_result) {
-
-	sharedMemory_->SetState(receiving);
-
-	// Clear the coordinate storage
-	sharedMemory_->ResetCommandQueue();
 
 	for (int i = 0; i < select_result; i++) {
 
@@ -238,10 +211,10 @@ void Core::InitializeReceiving(const int select_result) {
 			sharedMemory_->AddSocket(newClient);
 
 			// Add newClient to socketContentList
-			clientId_++;
+			clientIndex_++;
 
-			// Create new client object
-			auto* clientObject = new Client(newClient, sharedMemory_, clientId_);
+			// Create and connect it to main lobby
+			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_);
 
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server";
@@ -251,13 +224,16 @@ void Core::InitializeReceiving(const int select_result) {
 			// Console message
 			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
 
-			send(newClient, std::to_string(clientId_).c_str(), static_cast<int>(std::to_string(clientId_).size()) + 1, 0);
+			send(newClient, std::to_string(clientIndex_).c_str(), static_cast<int>(std::to_string(clientIndex_).size()) + 1, 0);
 			// wait a little bit before sending the next message
-			std::this_thread::sleep_for(std::chrono::microseconds(1));
+			std::this_thread::sleep_for(std::chrono::microseconds(10));
 
 			send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
 			// Console message
-			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientId_));
+			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientIndex_));
+
+			// Connect client to main lobby
+			sharedMemory_->GetMainLobby()->AddClient(clientObject);
 
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
@@ -265,36 +241,6 @@ void Core::InitializeReceiving(const int select_result) {
 			break;
 		}
 	}
-
-	for (int i = 0; i < timeoutTries_; i++) {
-		// Check if all clients have received their payload
-		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
-			sharedMemory_->SetState(awaiting);
-			return;
-		}
-
-		// Sleep for half a millisecond, convert milliseconds to microseconds
-		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(timeoutDelay_ * 1000)));
-	}
-	sharedMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread");
-}
-
-void Core::InitializeSending() const {
-	sharedMemory_->SetState(sending);
-
-	for (int i = 0; i < timeoutTries_; i++) {
-		// Check if all clients have received their payload
-		if (sharedMemory_->GetReadyClients() == sharedMemory_->GetConnectedClients()) {
-			sharedMemory_->SetState(awaiting);
-			return;
-		}
-		// Sleep for half a millisecond, convert milliseconds to microseconds
-		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(timeoutDelay_ * 1000)));
-	}
-
-	sharedMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread");
 }
 
 void Core::Interpreter() const {
@@ -322,11 +268,15 @@ void Core::Interpreter() const {
 
 		if (!part.empty()) {
 			if (part[0] == "/Start") {
-				log_->info("Performing command");
-				sharedMemory_->AddCoreCall(0, Command::start);
+				if (sharedMemory_->IsInt(part[1])) {
+					sharedMemory_->AddCoreCall(0, Command::start);
+				}
 			}
 			else if (part[0] == "/Kick") {
-				sharedMemory_->AddCoreCall(std::stoi(part[1]), Command::kick);
+				// The first selector is lobby and the second is for client
+				if (sharedMemory_->IsInt(part[1]) && sharedMemory_->IsInt(part[2])) {
+					sharedMemory_->AddCoreCall(std::stoi(part[2]), Command::kick);
+				}
 			}
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));

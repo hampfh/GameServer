@@ -1,18 +1,23 @@
 #pragma once
 #include "SharedMemory.h"
+#include "Lobby.h"
 
 /**
     Client.h
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 0.4 08/04/2019
+    @version 0.5 08/04/2019
 */
+
+// Predefining class
+class SharedMemory;
 
 class Client {
 public:
 	Client(SOCKET socket, SharedMemory* shared_memory, int id);
 	~Client();
+
 	/**
 		The loop fo the client thread, this alternates 
 		between sending and receiving mode
@@ -58,31 +63,56 @@ public:
 
 		@return void
 	 */
-	void Drop() const;
+	void RequestDrop() const;
+
+	// Getter
+	std::string GetCommand() const { return clientCommand_; };
+	State& GetState() { return state_; };
 
 	// Setters
 
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
 	void SetInterval(std::chrono::microseconds microseconds);
+	void SetLobbyStateReference(State* lobby_state);
+	void SetLobbyDropReference(std::vector<int>* drop_list);
+	void SetState(State state);
 private:
-	int id_;
+	
 	// Alive status of the socket
 	bool isOnline_;
 
 	SOCKET socket_;
-	// Class containing all information for the server. This class is passed to all threads 
-	SharedMemory* sharedMemory_;
+
 	std::chrono::microseconds loopInterval_;
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;
 
-	State clientState_;
-
 	// Received response from client socket
 	std::string clientCommand_;
 	// Awaiting commands for coreCall
 	std::string pendingSend_;
+
+	// Dynamic allocated array holding outgoing commands
+	std::vector<std::string> outgoingCommands_;
+
+	State state_;
+	State* lobbyState_ = nullptr;
+
+	SharedMemory* sharedMemory_ = nullptr;
+
+	// A pointer to awaiting kick in lobby
+	std::vector<int>* dropList_ = nullptr;
+public:
+	// Client specifiers
+
+	// The id of the client
+	int id;
+	// Points to next lobby
+	Client* next = nullptr;
+	// Points to previous lobby
+	Client* prev = nullptr;
+
 };
 

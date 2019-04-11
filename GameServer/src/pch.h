@@ -19,3 +19,15 @@
 #include "SCL/SCL.hpp";
 
 #pragma comment(lib,"WS2_32")
+
+enum State {
+	none = 0,
+	awaiting = 1,
+	receiving = 2,
+	sending = 3,
+};
+
+enum Command {
+	start = 0,
+	kick = 1
+};
