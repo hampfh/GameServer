@@ -32,7 +32,7 @@ void Core::SetupConfig() {
 			std::string& selector = setting.first;
 			std::string& value = setting.second;
 
-			if (selector == "port") {
+			if (selector == "server_port") {
 				port_ = std::stoi(value);
 			}
 			else if (selector == "clock_speed") {
@@ -113,8 +113,6 @@ std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> Core::SetupLogging() {
 
 void Core::SetupWinSock() {
 
-	const int port = 15000;
-
 	// Initialize win sock	
 	const WORD ver = MAKEWORD(2, 2);
 	WSADATA wsaData;
@@ -134,7 +132,7 @@ void Core::SetupWinSock() {
 	// Binding connections
 	sockaddr_in hint;
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(port);
+	hint.sin_port = htons(port_);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
@@ -159,7 +157,7 @@ void Core::SetupWinSock() {
 
 	seed_ = serverSeed;
 
-	log_->info("Server port is " + std::to_string(port));
+	log_->info("Server port is " + std::to_string(port_));
 
 	// Assign
 	sharedMemory_->SetSockets(master);
