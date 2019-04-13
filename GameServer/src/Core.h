@@ -89,6 +89,8 @@ public:
 private:
 	bool running_;
 
+	int port_;
+
 	SOCKET listening_;
 
 	// Id index
@@ -114,6 +116,6 @@ private:
 	// Class containing all information for the server. This class is passed to all threads 
 	SharedMemory* sharedMemory_;
 
-	std::chrono::milliseconds clockSpeed_;
+	int clockSpeed_;
 };
 

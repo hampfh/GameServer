@@ -144,7 +144,7 @@ void Client::CoreCallListener() {
 
 		// Clear outgoing if no information
 		if (pendingSend_.length() <= 4) {
-			log_->warn("Cleared pendingSend");
+			log_->warn("Cleared pendingSend, nothing to send");
 			pendingSend_.clear();
 		}
 

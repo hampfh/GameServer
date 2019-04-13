@@ -28,12 +28,15 @@ void Core::SetupConfig() {
 		// Load content from conf file
 		scl::config_file file("server.conf", scl::config_file::READ);
 
-		for (auto setting : file) {
+		for (std::pair<std::string, std::string> setting : file) {
 			std::string& selector = setting.first;
 			std::string& value = setting.second;
 
-			if (selector == "clock_speed") {
-				clockSpeed_ = std::chrono::milliseconds(std::stoi(value));
+			if (selector == "port") {
+				port_ = std::stoi(value);
+			}
+			else if (selector == "clock_speed") {
+				clockSpeed_ = std::stoi(value);
 			}
 			else if(selector == "socket_processing_max") {
 				timeInterval_.tv_usec = std::stoi(value) * 1000;
@@ -62,13 +65,14 @@ void Core::SetupConfig() {
 		// Generating settings
 		file.put(scl::comment(" --Server settings--"));
 		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
+		file.put("server_port", 15000);
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
 		file.put("timeout_tries", 30);
 		file.put("timeout_delay", 0.5);
+		file.put("max_connections", 10);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
-		file.put("max_connections", 10);
 
 		// Create file
 		file.write_changes();
@@ -78,7 +82,8 @@ void Core::SetupConfig() {
 		log_->info("Configuration file created!");
 
 		// Assigning standard values to server
-		clockSpeed_ = std::chrono::milliseconds(50);
+		port_ = 15000;
+		clockSpeed_ = 50;
 		timeInterval_.tv_usec = 1000;
 		timeoutTries_ = 30;
 		timeoutDelay_ = 0.5f;
@@ -244,18 +249,18 @@ void Core::InitializeReceiving(const int select_result) {
 			auto* clientObject = new Client(newClient, sharedMemory_, clientId_);
 
 			// Create a setup message
-			std::string welcomeMsg = "Successfully connected to server";
+			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientId_) + "|" + std::to_string(seed_);
 			// Send the message to the new client
 			send(newClient, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
 
 			// Console message
 			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
 
-			send(newClient, std::to_string(clientId_).c_str(), static_cast<int>(std::to_string(clientId_).size()) + 1, 0);
+			//send(newClient, std::to_string(clientId_).c_str(), static_cast<int>(std::to_string(clientId_).size()) + 1, 0);
 			// wait a little bit before sending the next message
 			std::this_thread::sleep_for(std::chrono::microseconds(1));
 
-			send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
+			//send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
 			// Console message
 			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientId_));
 
@@ -277,7 +282,7 @@ void Core::InitializeReceiving(const int select_result) {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(timeoutDelay_ * 1000)));
 	}
 	sharedMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread");
+	log_->warn("Timed out while waiting for client thread (Receiving)");
 }
 
 void Core::InitializeSending() const {
@@ -294,7 +299,7 @@ void Core::InitializeSending() const {
 	}
 
 	sharedMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread");
+	log_->warn("Timed out while waiting for client thread (Sending)");
 }
 
 void Core::Interpreter() const {
