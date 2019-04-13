@@ -106,7 +106,7 @@ std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> Core::SetupLogging() {
 
 	// Global spdlog settings
 	spdlog::flush_on(spdlog::level::info);
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 
 	return sharedFileSink;
 }

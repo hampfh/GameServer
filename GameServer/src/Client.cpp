@@ -12,7 +12,7 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) :
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 	sinks.push_back(sharedMemory_->sharedFileSink);
 	log_ = std::make_shared<spdlog::logger>("Client#" + std::to_string(socket), begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
+	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 	
 	log_->info("Assigned ID: " + std::to_string(id));

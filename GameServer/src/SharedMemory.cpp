@@ -12,7 +12,7 @@ SharedMemory::SharedMemory(const std::shared_ptr<spdlog::sinks::rotating_file_si
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 	sinks.push_back(shared_file_sink);
 	log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%Lf] %^%n: %v%$");
+	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 }
 
