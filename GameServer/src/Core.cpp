@@ -214,21 +214,21 @@ void Core::InitializeReceiving(const int select_result) {
 			clientIndex_++;
 
 			// Create and connect it to main lobby
-			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_);
+			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->id);
 
 			// Create a setup message
-			std::string welcomeMsg = "Successfully connected to server";
+			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
 			// Send the message to the new client
 			send(newClient, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
 
 			// Console message
 			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
 
-			send(newClient, std::to_string(clientIndex_).c_str(), static_cast<int>(std::to_string(clientIndex_).size()) + 1, 0);
+			//send(newClient, std::to_string(clientIndex_).c_str(), static_cast<int>(std::to_string(clientIndex_).size()) + 1, 0);
 			// wait a little bit before sending the next message
 			std::this_thread::sleep_for(std::chrono::microseconds(10));
 
-			send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
+			//send(newClient, std::to_string(seed_).c_str(), static_cast<int>(std::to_string(seed_).size()) + 1, 0);
 			// Console message
 			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientIndex_));
 
@@ -243,6 +243,15 @@ void Core::InitializeReceiving(const int select_result) {
 	}
 }
 
+void Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
+	Lobby* current = sharedMemory_->GetFirstLobby();
+
+	while (current != nullptr) {
+		current->BroadcastCoreCall(lobby, receiver, command);
+		current = current->next;
+	}
+}
+
 void Core::Interpreter() const {
 	std::string command;
 	while (true) {
@@ -254,11 +263,12 @@ void Core::Interpreter() const {
 		const std::regex regexCommand("[^ ]+");
 		std::smatch matcher;
 
+		// Check if input is a command call
+		if (command[0] != '/') {
+			continue;
+		}
+
 		while (std::regex_search(command, matcher, regexCommand)) {
-			if (matcher[0].str()[0] != '/') {
-				// Not a command, break
-				break;
-			}
 			for (auto addSegment : matcher) {
 				// Append the commands to the list
 				part.push_back(addSegment.str());
@@ -266,19 +276,47 @@ void Core::Interpreter() const {
 			command = matcher.suffix().str();
 		}
 
+		bool success = false;
+
 		if (!part.empty()) {
-			if (part[0] == "/Start") {
+			if (part.size() >= 2 && part[0] == "/Start") {
 				if (sharedMemory_->IsInt(part[1])) {
-					sharedMemory_->AddCoreCall(0, Command::start);
+					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
+					success = true;
 				}
 			}
 			else if (part[0] == "/Kick") {
 				// The first selector is lobby and the second is for client
 				if (sharedMemory_->IsInt(part[1]) && sharedMemory_->IsInt(part[2])) {
-					sharedMemory_->AddCoreCall(std::stoi(part[2]), Command::kick);
+					BroadcastCoreCall(std::stoi(part[1]), std::stoi(part[2]), Command::kick);
+					success = true;
+				}
+			} else if (part[0] == "/Lobby") {
+				if (part.size() >= 2 && part[1] == "create") {
+					Lobby* newLobby = sharedMemory_->AddLobby();
+					log_->info("Lobby created with id: " + std::to_string(newLobby->id));
+					success = true;
+				}
+				else if (part.size() >= 3 && part[1] == "drop" && sharedMemory_->IsInt(part[2])) {
+					Lobby* current = sharedMemory_->GetFirstLobby();
+					// Search for the lobby with the assigned id
+					while (current != nullptr) {
+						if (current->id == std::stoi(part[2])) {
+							sharedMemory_->DropLobby(std::stoi(part[2]));
+							success = true;
+							break;
+						}
+						current = current->next;
+					}
+				}
+				else if (part.size() >= 4 && part[1] == "join" && sharedMemory_->IsInt(part[2]) && sharedMemory_->IsInt(part[3])) {
+					Lobby* selectedLobby = sharedMemory_->GetLobby(std::stoi(part[2]));
+					
 				}
 			}
 		}
+		if (success) log_->info("Performed command");
+		else log_->warn("No such command");
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }

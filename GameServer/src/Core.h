@@ -62,6 +62,16 @@ public:
 	 */
 	void InitializeReceiving(int select_result);
 	/**
+		Broadcasts the call from core
+		to all lobbies
+
+		@param lobby Id of the lobby
+		@param receiver Id of the targeted client
+		@param command Type of command
+		@return void
+	 */
+	void BroadcastCoreCall(int lobby, int receiver, int command) const;
+	/**
 		The interpreter is ran by another thread
 		to interpret and execute commands entered 
 		in the server console 

@@ -23,7 +23,6 @@ Lobby::Lobby(const int id, SharedMemory* shared_memory) : sharedMemory_(shared_m
 
 
 Lobby::~Lobby() {
-	ResetCommandQueue();
 }
 
 void Lobby::Execute() {
@@ -33,31 +32,33 @@ void Lobby::Execute() {
 		Loop();
 	}
 	CleanUp();
+
+	delete this;
 }
 
 void Lobby::Loop() {
 
+	DropAwaiting();
 
 	// Receiving state
-	if (internalState_ == receiving) {
+	if (internalState_ == State::receiving) {
 		InitializeReceiving();
 	}
 	// Sending state
-	else if (internalState_ == sending) {
+	else if (internalState_ == State::sending) {
 		InitializeSending();
 	}
 
-
 	// Swap state
 	switch (internalState_) {
-	case receiving:
-		internalState_ = sending;
+	case State::receiving:
+		internalState_ = State::sending;
 		break;
 	case sending:
-		internalState_ = receiving;
+		internalState_ = State::receiving;
 		break;
 	default:
-		internalState_ = receiving;
+		internalState_ = State::receiving;
 		break;
 	}
 	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
@@ -132,66 +133,32 @@ void Lobby::InitializeReceiving() {
 }
 
 void Lobby::CleanUp() const {
+	// Delete all client
+	Client* current = firstClient_;
+	Client* prev = firstClient_;
+	while (current != nullptr) {
+		sharedMemory_->DropSocket(current->GetSocket());
+		current = current->next;
+		log_->info("Dropped client #" + std::to_string(current->id));
+		delete prev;
+		prev = current;
+	}
 
+	// Delete log
+	spdlog::drop("Lobby#" + std::to_string(id));
 }
-
-//void Lobby::Ready() {
-//	while (true) {
-//		// If the clients state matches the servers then 
-//		// consider the client ready for next state
-//		if (clientStateMtx_.try_lock()) {
-//			clientsReady_++;
-//			clientStateMtx_.unlock();
-//			return;
-//		}
-//		std::this_thread::sleep_for(std::chrono::microseconds(100));
-//	}
-//}
-//
-//void Lobby::AppendClientCommands(const int id, const std::string command) {
-//	while (true) {
-//		if (addCommandMtx_.try_lock()) {
-//
-//			// Add the clients coordinates to shared memory
-//			commandQueue_.push_back(command);
-//
-//			// TODO Add a storage that saves all past commands to make it possible for clients to connect later
-//
-//			// Marks the clients as ready
-//			addCommandMtx_.unlock();
-//			return;
-//		}
-//		std::this_thread::sleep_for(std::chrono::microseconds(100));
-//	}
-//}
-//
-//void Lobby::AddCoreCall(const int receiver, const int command) {
-//	// Create and append call
-//	// Sender, Receiver, Command
-//	coreCall_.push_back({ 0, receiver, command });
-//}
-//
-//void Lobby::PerformedCoreCall() {
-//	while (true) {
-//		if (coreCallMtx_.try_lock()) {
-//			coreCallPerformedCount_++;
-//			if (coreCallPerformedCount_ == connectedClients_) {
-//				ResetCoreCall();
-//			}
-//			coreCallMtx_.unlock();
-//			return;
-//		}
-//		std::this_thread::sleep_for(std::chrono::microseconds(100));
-//	}
-//}
-//
-//void Lobby::ResetCoreCall() {
-//	coreCallPerformedCount_ = 0;
-//	coreCall_.clear();
-//}
 
 void Lobby::ResetCommandQueue() {
 	commandQueue_.clear();
+}
+
+void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) const {
+	Client* current = firstClient_;
+
+	while (current != nullptr) {
+		current->SetCoreCall({0, lobby, receiver, command});
+		current = current->next;
+	}
 }
 
 void Lobby::AddClient(Client* client) {
@@ -220,10 +187,14 @@ void Lobby::AddClient(Client* client) {
 
 void Lobby::DropClient(const int id) {
 	Client* current = firstClient_;
-	while (true) {
-		if (current->id != id) {
+	while (current != nullptr) {
+		if (current->id == id) {
 			// Drop client
-			if (current == firstClient_) {
+			if (current == firstClient_ && firstClient_ == lastClient_) {
+				firstClient_ = nullptr;
+				lastClient_ = nullptr;
+			}
+			else if (current == firstClient_) {
 				current->next = firstClient_;
 				firstClient_->prev = nullptr;
 			} else if (current == lastClient_) {
@@ -234,17 +205,25 @@ void Lobby::DropClient(const int id) {
 			}
 
 			connectedClients_--;
+			log_->info("Dropped client " + std::to_string(current->id));
 			// Delete client
 			delete current;
-			break;
+			return;
 		}
 		current = current->next;
 	}
+	log_->info("Client not found");
 }
 
 void Lobby::DropAwaiting() {
-	for (auto clientId : dropList_) {
-		DropClient(clientId);
-		log_->info("Dropped client " + std::to_string(id));
+	if (dropList_.empty()) {
+		for (auto clientId : dropList_) {
+			DropClient(clientId);
+		}
 	}
+	dropList_.clear();
+}
+
+void Lobby::Drop() {
+	running_ = false;
 }

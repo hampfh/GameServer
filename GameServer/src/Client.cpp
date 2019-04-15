@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id) : socket_(socket), sharedMemory_(shared_memory), id(id) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, int lobbyId) : socket_(socket), sharedMemory_(shared_memory), id(id), lobbyId(lobbyId) {
 
 	isOnline_ = true;
 	state_ = none;
+	lastState_ = none;
 
 	loopInterval_ = std::chrono::microseconds(1000);
 	
@@ -31,15 +32,13 @@ void Client::Loop() {
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (*lobbyState_ == sending &&
-			state_ != sending) {
-			log_->info("Started sending");
+			lastState_ != sending) {
 			Send();
 		}
 		// Perform receiving operation if serverApp is ready and
 		// the client has not already performed it
 		else if (*lobbyState_ == receiving &&
-			state_ != receiving) {
-			log_->info("Started receiving");
+			lastState_ != receiving) {
 			Receive();
 		}
 		// Thread sleep
@@ -69,6 +68,7 @@ void Client::Receive() {
 		log_->warn("Lost connection to client");
 		// Tell other clients that this client has disconnected
 		clientCommand_ = "{" + std::to_string(id) + "|D}";
+		lastState_ = receiving;
 		state_ = receiving;
 		return;
 	}
@@ -79,6 +79,7 @@ void Client::Receive() {
 	clientCommand_.insert(0, "{" + std::to_string(id) + "|");
 	clientCommand_.append("}");
 
+	lastState_ = receiving;
 	state_ = receiving;
 
 }
@@ -105,6 +106,7 @@ void Client::Send() {
 	send(socket_, outgoing.c_str(), static_cast<int>(outgoing.size()) + 1, 0);
 
 	// Client ready
+	lastState_ = sending;
 	state_ = sending;
 
 	// Reset pending send
@@ -114,19 +116,20 @@ void Client::Send() {
 void Client::CoreCallListener() {
 
 	// Get core call
-	std::vector<std::vector<int>> coreCall = sharedMemory_->GetCoreCall();
-	if (!coreCall.empty()) {
+	if (!coreCall_.empty()) {
 		pendingSend_.append("{0|");
-		for (auto frame : coreCall) {
+		for (auto frame : coreCall_) {
 			// Check if call is meant for this client or is a broadcast
 			if (frame[0] == 0 &&
-				(frame[1] == id || frame[1] == 0)) {
+				(frame[1] == lobbyId || frame[1] == 0) &&
+				(frame[2] == id || frame[2] == 0)) {
 
-				if (frame.size() != 3) {
+				if (frame.size() != 4) {
+					log_->warn("Malformated call, ignoring");
 					continue;
 				}
 
-				const int command = frame[2];
+				const int command = frame[3];
 
 				// Interpret command
 				if (command == Command::start) {
@@ -145,6 +148,8 @@ void Client::CoreCallListener() {
 			log_->warn("Cleared pendingSend");
 			pendingSend_.clear();
 		}
+
+		coreCall_.clear();
 	}
 }
 
@@ -167,17 +172,18 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 }
 
 void Client::RequestDrop() const {
-	if (socket_ != 0) {
-		log_->info("Client#" + std::to_string(socket_) + " was dropped");
 
-		spdlog::drop("Client#" + std::to_string(socket_));
+	spdlog::drop("Client#" + std::to_string(socket_));
 
-		// Drop client globally
-		sharedMemory_->DropSocket(socket_);
+	// Drop client globally
+	sharedMemory_->DropSocket(socket_);
 
-		// Add self to dropList in lobby
-		dropList_->push_back(this->id);
-	}
+	// Add self to dropList in lobby
+	dropList_->push_back(id);
+}
+
+void Client::SetCoreCall(std::vector<int> coreCall) {
+	coreCall_.push_back(coreCall);
 }
 
 void Client::SetSocket(const SOCKET socket) {

@@ -58,59 +58,22 @@ public:
 	 */
 	void CleanUp() const;
 	/**
-		A method called by client thread
-		to tell the core that they are
-		ready for the next iteration
-
-		@return void
-	 */
-	//void Ready();
-	/**
-		Add the command and appends it to
-		the shared memory's command queue.
-		A header is also applied in front
-		of the command with the id of the
-		sender
-
-		@param id Id of the client sending
-		@param command Command to perform
-		@return void
-	 */
-	//void AppendClientCommands(int id, std::string command);
-	/**
-		Method appends an internal or
-		external command for the clients
-		depending on the receiver
-
-		@param receiver Id of the receiving thread, 0 for broadcast
-		@param command The command to execute, using the "Command" enum
-		@return void
-	 */
-	//void AddCoreCall(int receiver, int command);
-	/**
-		Tell the shared memory
-		that client has interpreted
-		and performed the core call
-
-		@return void
-	 */
-	//void PerformedCoreCall();
-	/**
-		Clears the core call from
-		all commands and resets
-		the "coreCallPerformedCount_"
-		receiving count
-
-		@return void
-	 */
-	//void ResetCoreCall();
-	/**
 		Clears the vector array
 		from all previous commands
 
 		@return void
 	 */
 	void ResetCommandQueue();
+	/**
+		Broadcasts the call from lobby
+		to all clients
+
+		@param lobby Id of the lobby
+		@param receiver Id of the targeted client
+		@param command Type of command
+		@return void
+	 */
+	void BroadcastCoreCall(int& lobby, int& receiver, int& command) const;
 	/**
 		Add a client to the lobby
 
@@ -137,6 +100,9 @@ public:
 	// Getters
 	State GetState() const { return lobbyState_; };
 	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
+
+	// Setters
+	void Drop();
 
 private:
 	bool running_;

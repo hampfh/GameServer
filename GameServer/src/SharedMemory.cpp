@@ -66,7 +66,7 @@ void SharedMemory::DropSocket(const SOCKET socket) {
 Lobby* SharedMemory::AddLobby() {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
-			if (lobbyMax_ <= lobbyIndex_ && lobbyMax_ != 0) {
+			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
 				SharedMemory::log_->warn("Lobby max reached");
 				return nullptr;
 			}
@@ -112,6 +112,8 @@ Lobby* SharedMemory::CreateMainLobby() {
 			// Add a new lobby and assign an id
 			Lobby* newLobby = new Lobby(lobbyIndex_++, this);
 
+			lobbiesAlive_++;
+
 			mainLobby_ = newLobby;
 			firstLobby_ = newLobby;
 			lastLobby_ = newLobby;
@@ -129,7 +131,7 @@ Lobby* SharedMemory::CreateMainLobby() {
 	}
 }
 
-void SharedMemory::DropLobby(int id) {
+void SharedMemory::DropLobby(const int id) {
 	while (true) {
 		if (dropLobbyMtx_.try_lock()) {
 			// Delete lobby, (disconnect all clients)
@@ -141,7 +143,11 @@ void SharedMemory::DropLobby(int id) {
 				// Disconnect lobby from list
 				if (current->id == id) {
 					// Targeted lobby is first in list
-					if (current == firstLobby_) {
+					if (current == firstLobby_ && firstLobby_ == lastLobby_) {
+						firstLobby_ = nullptr;
+						lastLobby_ = nullptr;
+					}
+					else if (current == firstLobby_) {
 						firstLobby_ = current->next;
 						firstLobby_->prev = nullptr;
 					}
@@ -153,9 +159,11 @@ void SharedMemory::DropLobby(int id) {
 						// Target lobby is somewhere in middle of list
 					else { current->prev->next = current->next; }
 
+					lobbiesAlive_--;
+
 					// Delete the lobby
-					log_->warn("Deleted lobby");
-					delete current;
+					log_->info("Dropped lobby " + std::to_string(current->id));
+					current->Drop();
 					break;
 				}
 
@@ -169,22 +177,19 @@ void SharedMemory::DropLobby(int id) {
 	}
 }
 
-bool SharedMemory::IsInt(std::string& string) const {
-	if (string.empty()) {
-		try {
-			// TODO iterate through string and do not rely on error
-			int id = std::stoi(string);
-			return true;
-		}
-		catch (...) { return false; }
+bool SharedMemory::IsInt(std::string& string) const {	
+	try {
+		// TODO iterate through string and do not rely on error
+		int id = std::stoi(string);
+		return true;
 	}
-	return false;
+	catch (...) { return false; }
 }
 
-void SharedMemory::AddCoreCall(const int receiver, const int command) {
+void SharedMemory::AddCoreCall(const int lobby, const int receiver, const int command) {
 	// Create and append call
 	// Sender, Receiver, Command
-	coreCall_.push_back({0, receiver, command});
+	coreCall_.push_back({0, lobby, receiver, command});
 }
 
 Lobby* SharedMemory::GetLobby(const int id) const {

@@ -87,7 +87,7 @@ public:
 		@param command The command to execute, using the "Command" enum
 		@return void
 	 */
-	 void AddCoreCall(int receiver, int command);
+	 void AddCoreCall(const int lobby, int receiver, int command);
 
 	// Getters
 
@@ -127,6 +127,7 @@ private:
 
 	// Index adding up for each connected client
 	int lobbyIndex_ = 0;
+	int lobbiesAlive_ = 0;
 	// Max number of lobbies
 	int lobbyMax_ = 0;
 

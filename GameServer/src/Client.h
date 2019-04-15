@@ -15,7 +15,7 @@ class SharedMemory;
 
 class Client {
 public:
-	Client(SOCKET socket, SharedMemory* shared_memory, int id);
+	Client(SOCKET socket, SharedMemory* shared_memory, int id, int lobbtId);
 	~Client();
 
 	/**
@@ -68,9 +68,11 @@ public:
 	// Getter
 	std::string GetCommand() const { return clientCommand_; };
 	State& GetState() { return state_; };
+	SOCKET& GetSocket() { return socket_; };
 
 	// Setters
 
+	void SetCoreCall(std::vector<int> coreCall);
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
 	void SetInterval(std::chrono::microseconds microseconds);
@@ -98,14 +100,19 @@ private:
 	std::vector<std::string> outgoingCommands_;
 
 	State state_;
+	State lastState_;
 	State* lobbyState_ = nullptr;
 
 	SharedMemory* sharedMemory_ = nullptr;
+
+	std::vector<std::vector<int>> coreCall_;
 
 	// A pointer to awaiting kick in lobby
 	std::vector<int>* dropList_ = nullptr;
 public:
 	// Client specifiers
+
+	int lobbyId;
 
 	// The id of the client
 	int id;
