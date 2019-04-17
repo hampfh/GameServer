@@ -76,7 +76,7 @@ void Core::SetupConfig() {
 		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
-		file.put("timeout_tries", 30);
+		file.put("timeout_tries", 30000);
 		file.put("timeout_delay", 0.5);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
@@ -89,14 +89,7 @@ void Core::SetupConfig() {
 
 		log_->info("Configuration file created!");
 
-		// Assigning standard values to server
-		sharedMemory_->SetClockSpeed(50);
-		timeInterval_.tv_usec = 1000;
-		sharedMemory_->SetTimeoutTries(30);
-		sharedMemory_->SetTimeoutDelay(0.5f);
-		// Client related
-		clientIndex_ = 1;
-		maxConnections_ = 10;
+		SetupConfig();
 	}
 }
 
@@ -314,6 +307,7 @@ void Core::Interpreter() const {
 					
 				}
 			}
+			//TODO add /stop command for server
 		}
 		if (success) log_->info("Performed command");
 		else log_->warn("No such command");

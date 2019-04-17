@@ -1,14 +1,47 @@
 #include "pch.h"
 #include "Lobby.h"
 
+SharedLobbyMemory::SharedLobbyMemory() {
+	state_ = none;
+}
+
+void SharedLobbyMemory::AddDrop(const int id) {
+	while(true) {
+		if (addDropMtx_.try_lock()) {
+			dropList_.push_back(id);
+			addDropMtx_.unlock();
+			return;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(500));
+	}
+}
+
+void SharedLobbyMemory::ClearDropList() {
+	while (true) {
+		if (addDropMtx_.try_lock()) {
+			dropList_.clear();
+			addDropMtx_.unlock();
+			return;
+		}
+		std::this_thread::sleep_for(std::chrono::microseconds(500));
+	}
+}
+
+void SharedLobbyMemory::SetState(const State state) {
+	state_ = state;
+}
+
+
 Lobby::Lobby(const int id, SharedMemory* shared_memory) : sharedMemory_(shared_memory), id(id) {
-	lobbyState_ = none;
+	//lobbyState_ = none;
+	internalState_ = none;
 	coreCallPerformedCount_ = 0;
 	connectedClients_ = 0;
 	maxConnections_ = 0;
 	commandQueue_.clear();
 
 	running_ = true;
+	sharedLobbyMemory_ = new SharedLobbyMemory;
 
 	// Setup lobby logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -64,9 +97,9 @@ void Lobby::Loop() {
 	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
 
-void Lobby::InitializeSending() {
+void Lobby::InitializeSending() const {
 	// Tell clients to start sending
-	lobbyState_ = sending;
+	sharedLobbyMemory_->SetState(sending);
 
 	int readyClients = 0;
 
@@ -76,6 +109,8 @@ void Lobby::InitializeSending() {
 		while (current != nullptr) {
 
 			if (current->GetState() == State::sending) {
+				// TODO Send data to client
+				current->SetOutgoing(commandQueue_);
 				current->SetState(State::awaiting);
 				readyClients++;
 			}
@@ -83,7 +118,7 @@ void Lobby::InitializeSending() {
 			current = current->next;
 		}
 		if (readyClients >= connectedClients_) {
-			lobbyState_ = awaiting;
+			sharedLobbyMemory_->SetState(awaiting);
 			return;
 		}
 
@@ -91,13 +126,13 @@ void Lobby::InitializeSending() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	lobbyState_ = awaiting;
+	sharedLobbyMemory_->SetState(awaiting);
 	log_->warn("Timed out while waiting for client thread (Sending)");
 }
 
 void Lobby::InitializeReceiving() {
 	// Tell clients to start receiving
-	lobbyState_ = receiving;
+	sharedLobbyMemory_->SetState(receiving);
 
 	// Clear all earlier commands
 	ResetCommandQueue();
@@ -112,14 +147,17 @@ void Lobby::InitializeReceiving() {
 			// If client has received response then take it
 			if (current->GetState() == State::receiving) {
 				current->SetState(State::awaiting);
-				commandQueue_.push_back(current->GetCommand());
+				std::string clientCommand = current->GetCommand();
+				if (!clientCommand.empty()) {
+					commandQueue_.push_back(current->GetCommand());
+				}
 				readyClients++;
 			}
 
 			current = current->next;
 		}
 		if (readyClients >= connectedClients_) {
-			lobbyState_ = awaiting;
+			sharedLobbyMemory_->SetState(awaiting);
 			return;
 		}
 
@@ -127,7 +165,9 @@ void Lobby::InitializeReceiving() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	lobbyState_ = awaiting;
+	// TODO kick the player which is lagging behind
+
+	sharedLobbyMemory_->SetState(awaiting);
 	log_->warn("Timed out while waiting for client thread (Receiving)");
 	
 }
@@ -167,8 +207,9 @@ void Lobby::AddClient(Client* client) {
 	// TODO check lobby max number
 
 	// Give the client a pointer to the lobby state
-	client->SetLobbyStateReference(&lobbyState_);
-	client->SetLobbyDropReference(&dropList_);
+	//client->SetLobbyStateReference(&lobbyState_);
+	//client->SetLobbyDropReference(&dropList_);
+	client->SetMemory(sharedLobbyMemory_);
 
 	connectedClients_++;
 
@@ -195,10 +236,10 @@ void Lobby::DropClient(const int id) {
 				lastClient_ = nullptr;
 			}
 			else if (current == firstClient_) {
-				current->next = firstClient_;
+				firstClient_ = current->next;
 				firstClient_->prev = nullptr;
 			} else if (current == lastClient_) {
-				current->prev = lastClient_;
+				lastClient_ = current->prev;
 				lastClient_->next = nullptr;
 			} else {
 				current->prev->next = current->next;
@@ -216,12 +257,10 @@ void Lobby::DropClient(const int id) {
 }
 
 void Lobby::DropAwaiting() {
-	if (dropList_.empty()) {
-		for (auto clientId : dropList_) {
-			DropClient(clientId);
-		}
+	for (auto clientId : sharedLobbyMemory_->GetDropList()) {
+		DropClient(clientId);
 	}
-	dropList_.clear();
+	sharedLobbyMemory_->ClearDropList();
 }
 
 void Lobby::Drop() {

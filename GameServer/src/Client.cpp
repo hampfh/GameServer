@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, int lobbyId) : socket_(socket), sharedMemory_(shared_memory), id(id), lobbyId(lobbyId) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, const int lobby_id) : socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 	isOnline_ = true;
 	state_ = none;
@@ -22,6 +22,8 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, i
 
 Client::~Client() {
 	clientCommand_.clear();
+	log_->info("I was dropped");
+	spdlog::drop("Client#" + std::to_string(socket_));
 }
 
 void Client::Loop() {
@@ -31,13 +33,13 @@ void Client::Loop() {
 
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
-		if (*lobbyState_ == sending &&
+		if (lobbyMemory_->GetState() == sending &&
 			lastState_ != sending) {
 			Send();
 		}
 		// Perform receiving operation if serverApp is ready and
 		// the client has not already performed it
-		else if (*lobbyState_ == receiving &&
+		else if (lobbyMemory_->GetState() == receiving &&
 			lastState_ != receiving) {
 			Receive();
 		}
@@ -75,11 +77,18 @@ void Client::Receive() {
 
 	clientCommand_ = std::string(incoming, strlen(incoming));
 
-	// Encapsulate command inside a socket block
-	clientCommand_.insert(0, "{" + std::to_string(id) + "|");
-	clientCommand_.append("}");
+	// Only encapsulate if there is any content
+	if (bytes > 1) {
+		// Encapsulate command inside a socket block
+		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
+		clientCommand_.append("}");
+	} else {
+		clientCommand_.clear();
+	}
 
 	lastState_ = receiving;
+
+	// Ready call for client
 	state_ = receiving;
 
 }
@@ -171,7 +180,9 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 	return matches;
 }
 
-void Client::RequestDrop() const {
+void Client::RequestDrop() {
+
+	isOnline_ = false;
 
 	spdlog::drop("Client#" + std::to_string(socket_));
 
@@ -179,7 +190,7 @@ void Client::RequestDrop() const {
 	sharedMemory_->DropSocket(socket_);
 
 	// Add self to dropList in lobby
-	dropList_->push_back(id);
+	lobbyMemory_->AddDrop(this->id);
 }
 
 void Client::SetCoreCall(std::vector<int> coreCall) {
@@ -198,14 +209,14 @@ void Client::SetInterval(const std::chrono::microseconds microseconds) {
 	loopInterval_ = microseconds;
 }
 
-void Client::SetLobbyStateReference(State* lobby_state) {
-	lobbyState_ = lobby_state;
-}
-
-void Client::SetLobbyDropReference(std::vector<int>* drop_list) {
-	dropList_ = drop_list;
+void Client::SetMemory(SharedLobbyMemory* lobby_memory) {
+	lobbyMemory_ = lobby_memory;
 }
 
 void Client::SetState(const State state) {
 	state_ = state;
+}
+
+void Client::SetOutgoing(const std::vector<std::string> outgoing) {
+	outgoingCommands_ = outgoing;
 }

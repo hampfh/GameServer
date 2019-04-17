@@ -10,12 +10,13 @@
     @version 0.5 08/04/2019
 */
 
-// Predefining class
+// Predefining classes
 class SharedMemory;
+class SharedLobbyMemory;
 
 class Client {
 public:
-	Client(SOCKET socket, SharedMemory* shared_memory, int id, int lobbtId);
+	Client(SOCKET socket, SharedMemory* shared_memory, int id, int lobby_id);
 	~Client();
 
 	/**
@@ -63,7 +64,7 @@ public:
 
 		@return void
 	 */
-	void RequestDrop() const;
+	void RequestDrop();
 
 	// Getter
 	std::string GetCommand() const { return clientCommand_; };
@@ -76,9 +77,11 @@ public:
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
 	void SetInterval(std::chrono::microseconds microseconds);
-	void SetLobbyStateReference(State* lobby_state);
-	void SetLobbyDropReference(std::vector<int>* drop_list);
+	void SetMemory(SharedLobbyMemory* lobby_memory);
+	//void SetLobbyStateReference(State* lobby_state);
+	//void SetLobbyDropReference(std::vector<int>* drop_list);
 	void SetState(State state);
+	void SetOutgoing(std::vector<std::string> outgoing);
 private:
 	
 	// Alive status of the socket
@@ -101,14 +104,11 @@ private:
 
 	State state_;
 	State lastState_;
-	State* lobbyState_ = nullptr;
 
 	SharedMemory* sharedMemory_ = nullptr;
+	SharedLobbyMemory* lobbyMemory_ = nullptr;
 
 	std::vector<std::vector<int>> coreCall_;
-
-	// A pointer to awaiting kick in lobby
-	std::vector<int>* dropList_ = nullptr;
 public:
 	// Client specifiers
 

@@ -10,8 +10,41 @@
 	@version 0.5 10/04/2019
 */
 
+// Predefining classes
 class SharedMemory;
 class Client;
+
+class SharedLobbyMemory {
+public:
+	SharedLobbyMemory();
+	/**
+		Add a client which the
+		lobby will remove next iteration
+
+		@parma id Id of client
+		@return void
+	 */
+	void AddDrop(int id);
+	/**
+		Clear drop list from all ids
+		
+		@return void
+	 */
+	void ClearDropList();
+
+	// Getters
+
+	State GetState() const { return state_; };
+	std::vector<int> GetDropList() const { return dropList_; };
+
+	// Setters
+
+	void SetState(State state);
+private:
+	State state_;
+	std::mutex addDropMtx_;
+	std::vector<int> dropList_;
+};
 
 class Lobby {
 public:
@@ -41,7 +74,7 @@ public:
 
 		@return void
 	 */
-	void InitializeSending();
+	void InitializeSending() const;
 	/**
 		Initializes the receiving state, telling
 		client threads start receiving data from
@@ -96,18 +129,26 @@ public:
 		@return void
 	 */
 	void DropAwaiting();
+	/**
+		A command called to drop
+		the lobby. When called it
+		stops the loop and performs
+		at cleanup
+
+		@return void
+	 */
+	void Drop();
 
 	// Getters
-	State GetState() const { return lobbyState_; };
+	//State GetState() const { return lobbyState_; };
 	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
 
 	// Setters
-	void Drop();
+	
 
 private:
 	bool running_;
 
-	State lobbyState_ = receiving;
 	State internalState_ = none;
 
 	// Maximum lobby connections the server will allow
@@ -136,8 +177,7 @@ private:
 	int coreCallPerformedCount_;
 
 	SharedMemory* sharedMemory_ = nullptr;
-
-	std::vector<int> dropList_;
+	SharedLobbyMemory* sharedLobbyMemory_ = nullptr;
 
 public:
 	// Lobby specific parameters
