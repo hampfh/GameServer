@@ -74,7 +74,7 @@ Lobby* SharedMemory::AddLobby() {
 			spdlog::get("Shared Memory")->info("Created lobby");
 
 			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, this);
+			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
 
 			// Connect to list
 			if (firstLobby_ == nullptr) {
@@ -110,7 +110,7 @@ Lobby* SharedMemory::CreateMainLobby() {
 				return nullptr;
 			}
 			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, this);
+			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
 
 			lobbiesAlive_++;
 
@@ -214,3 +214,5 @@ void SharedMemory::SetTimeoutTries(const int tries) { timeoutTries_ = tries; }
 void SharedMemory::SetTimeoutDelay(const float delay) { timeoutDelay_ = delay; }
 
 void SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_speed; }
+
+void SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };

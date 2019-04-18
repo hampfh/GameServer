@@ -110,6 +110,7 @@ public:
 	void SetTimeoutTries(int tries);
 	void SetTimeoutDelay(float delay);
 	void SetClockSpeed(int clock_speed);
+	void SetLobbyMax(int lobby_max);
 
 private:
 	// A collection of all sockets

@@ -32,12 +32,11 @@ void SharedLobbyMemory::SetState(const State state) {
 }
 
 
-Lobby::Lobby(const int id, SharedMemory* shared_memory) : sharedMemory_(shared_memory), id(id) {
+Lobby::Lobby(const int id, const int max_connections, SharedMemory* shared_memory) : maxConnections_(max_connections), sharedMemory_(shared_memory), id(id) {
 	//lobbyState_ = none;
 	internalState_ = none;
 	coreCallPerformedCount_ = 0;
 	connectedClients_ = 0;
-	maxConnections_ = 0;
 	commandQueue_.clear();
 
 	running_ = true;
@@ -201,10 +200,14 @@ void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) const {
 	}
 }
 
-void Lobby::AddClient(Client* client) {
+int Lobby::AddClient(Client* client, const bool respect_limit) {
 	log_->info("Client added");
 
 	// TODO check lobby max number
+
+	if (connectedClients_ >= maxConnections_ && maxConnections_ != 0 && respect_limit) {
+		return 1;
+	}
 
 	// Give the client a pointer to the lobby state
 	//client->SetLobbyStateReference(&lobbyState_);
@@ -224,6 +227,7 @@ void Lobby::AddClient(Client* client) {
 		lastClient_ = lastClient_->next;
 		lastClient_->prev = current;
 	}
+	return 0;
 }
 
 void Lobby::DropClient(const int id) {

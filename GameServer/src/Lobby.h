@@ -48,7 +48,7 @@ private:
 
 class Lobby {
 public:
-	Lobby(int id, SharedMemory* shared_memory);
+	Lobby(int id, int max_connections, SharedMemory* shared_memory);
 	~Lobby();
 
 	/**
@@ -111,9 +111,11 @@ public:
 		Add a client to the lobby
 
 		@param client Connect client object to lobby
-		@return void
+		@param respect_limit Decides if the lobby should accept clients
+		even if the lobby is full
+		@return int 0 if client was added successfully, 1 if lobby is full
 	*/
-	void AddClient(Client* client);
+	int AddClient(Client* client, bool respect_limit = true);
 	/**
 		Drops and removes a specific
 		client from the list

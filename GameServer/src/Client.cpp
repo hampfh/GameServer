@@ -134,7 +134,7 @@ void Client::CoreCallListener() {
 				(frame[2] == id || frame[2] == 0)) {
 
 				if (frame.size() != 4) {
-					log_->warn("Malformated call, ignoring");
+					log_->warn("Bad formatted call, ignoring");
 					continue;
 				}
 

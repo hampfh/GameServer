@@ -56,6 +56,9 @@ void Core::SetupConfig() {
 			else if (selector == "timeout_delay") {
 				sharedMemory_->SetTimeoutDelay(std::stof(value));
 			}
+			else if (selector == "max_lobby_connections") {
+				sharedMemory_->SetLobbyMax(std::stoi(value));
+			}
 			else if (selector == "start_id_at") {
 				clientIndex_ = std::stoi(value);
 			}
@@ -72,15 +75,16 @@ void Core::SetupConfig() {
 		scl::config_file file("server.conf", scl::config_file::WRITE);
 		
 		// Generating settings
-		file.put(scl::comment(" --Server settings--"));
-		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
+		file.put(scl::comment(" Server settings"));
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
 		file.put("timeout_tries", 30000);
 		file.put("timeout_delay", 0.5);
+		file.put("max_connections", 10);
+		file.put(scl::comment(" Lobby settings"));
+		file.put("max_lobby_connections", 5);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
-		file.put("max_connections", 10);
 
 		// Create file
 		file.write_changes();
@@ -226,7 +230,7 @@ void Core::InitializeReceiving(const int select_result) {
 			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientIndex_));
 
 			// Connect client to main lobby
-			sharedMemory_->GetMainLobby()->AddClient(clientObject);
+			sharedMemory_->GetMainLobby()->AddClient(clientObject, false);
 
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
