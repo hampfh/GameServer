@@ -35,6 +35,14 @@ Core::~Core() {
 	
 }
 
+void Core::CleanUp() const {
+	// Clean up server
+	WSACleanup();
+
+	delete sharedMemory_;
+
+}
+
 void Core::SetupConfig() {
 	log_->info("Loading configuration file...");
 	try {
@@ -85,7 +93,7 @@ void Core::SetupConfig() {
 		file.put(scl::comment(" Lobby settings"));
 		file.put("max_lobby_connections", 5);
 		file.put(scl::comment(" Client settings"));;
-		file.put("start_id_at", 1);
+		file.put("start_id_at", 0);
 
 		// Create file
 		file.write_changes();
@@ -176,15 +184,6 @@ void Core::Loop() {
 	// Default sleep time between responses
 	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
-
-void Core::CleanUp() const {
-	// Clean up server
-	WSACleanup();
-
-	//delete sharedMemory_;
-	// TODO properly delete all lobbies and all clients
-}
-
 
 void Core::InitializeReceiving(const int select_result) {
 

@@ -50,7 +50,13 @@ class Lobby {
 public:
 	Lobby(int id, int max_connections, SharedMemory* shared_memory);
 	~Lobby();
+	/**
+		Cleanup lobby and delete drop all
+		connections
 
+		@return void
+	 */
+	void CleanUp();
 	/**
 		Method is the main loop for the lobby.
 		It calls the loop method every iteration
@@ -83,13 +89,6 @@ public:
 		@return void
 	 */
 	void InitializeReceiving();
-	/**
-		Cleanup lobby and delete drop all
-		connections
-
-		@return void
-	 */
-	void CleanUp() const;
 	/**
 		Clears the vector array
 		from all previous commands

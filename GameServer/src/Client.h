@@ -64,7 +64,15 @@ public:
 
 		@return void
 	 */
-	void RequestDrop();
+	void RequestDrop() const;
+	/**
+		Method does not delete anything but instead 
+		tell the thread to exit and finish everything
+		by itself
+
+		@return void
+	 */
+	void End();
 
 	// Getter
 	std::string GetCommand() const { return clientCommand_; };

@@ -57,6 +57,24 @@ Lobby::Lobby(const int id, const int max_connections, SharedMemory* shared_memor
 Lobby::~Lobby() {
 }
 
+void Lobby::CleanUp() {
+	// Delete all client
+	Client* current = firstClient_;
+	Client* prev = firstClient_;
+	while (current != nullptr) {
+		sharedMemory_->DropSocket(current->GetSocket());
+		log_->info("Dropped client #" + std::to_string(current->id));
+		
+		current = current->next;
+		prev->End();
+		prev = current;
+	}
+	DropAwaiting();
+
+	// Delete log
+	spdlog::drop("Lobby#" + std::to_string(id));
+}
+
 void Lobby::Execute() {
 	log_->info("Lobby#" + std::to_string(id) + " started successfully");
 
@@ -169,22 +187,6 @@ void Lobby::InitializeReceiving() {
 	sharedLobbyMemory_->SetState(awaiting);
 	log_->warn("Timed out while waiting for client thread (Receiving)");
 	
-}
-
-void Lobby::CleanUp() const {
-	// Delete all client
-	Client* current = firstClient_;
-	Client* prev = firstClient_;
-	while (current != nullptr) {
-		sharedMemory_->DropSocket(current->GetSocket());
-		current = current->next;
-		log_->info("Dropped client #" + std::to_string(current->id));
-		delete prev;
-		prev = current;
-	}
-
-	// Delete log
-	spdlog::drop("Lobby#" + std::to_string(id));
 }
 
 void Lobby::ResetCommandQueue() {

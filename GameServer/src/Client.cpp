@@ -21,7 +21,7 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, c
 }
 
 Client::~Client() {
-	clientCommand_.clear();
+	isOnline_ = false;
 	log_->info("I was dropped");
 	spdlog::drop("Client#" + std::to_string(socket_));
 }
@@ -180,17 +180,17 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 	return matches;
 }
 
-void Client::RequestDrop() {
-
-	isOnline_ = false;
-
-	spdlog::drop("Client#" + std::to_string(socket_));
+void Client::RequestDrop() const {
 
 	// Drop client globally
 	sharedMemory_->DropSocket(socket_);
 
 	// Add self to dropList in lobby
 	lobbyMemory_->AddDrop(this->id);
+}
+
+void Client::End() {
+	isOnline_ = false;
 }
 
 void Client::SetCoreCall(std::vector<int> coreCall) {

@@ -14,6 +14,14 @@ public:
 	Core();
 	~Core();
 	/**
+		Cleanup calls winsock2 cleanup, deletes
+		the shared memory and lastly delete the
+		core class itself
+
+		@return void
+	 */
+	void CleanUp() const;
+	/**
 		Setup method for configuration file
 
 		@return void
@@ -44,14 +52,6 @@ public:
 		@return void
 	 */
 	void Loop();
-	/**
-		Cleanup calls winsock2 cleanup, deletes
-		the shared memory and lastly delete the 
-		core class itself
-
-		@return void
-	 */
-	void CleanUp() const;
 	/**
 		Initializes the receiving state, telling 
 		client threads start receiving data from 

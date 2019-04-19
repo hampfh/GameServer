@@ -17,9 +17,10 @@ SharedMemory::~SharedMemory() {
 	// Delete all lobbies
 	Lobby* current = firstLobby_;
 	Lobby* prev = firstLobby_;
+	// Stop threads
 	while(current != nullptr) {
 		current = current->next;
-		delete prev;
+		prev->Drop();
 		prev = current;
 	}
 }
