@@ -3,8 +3,10 @@
 
 SharedMemory::SharedMemory() {
 
+	clockSpeed_ = 0;
+
 	// Create a global file sink
-	sharedFileSink_ = SetupLogging();
+	SetupLogging();
 
 	log_->info("Instantiated!");
 
@@ -12,25 +14,31 @@ SharedMemory::SharedMemory() {
 }
 
 SharedMemory::~SharedMemory() {
+	// Delete all lobbies
+	Lobby* current = firstLobby_;
+	Lobby* prev = firstLobby_;
+	while(current != nullptr) {
+		current = current->next;
+		delete prev;
+		prev = current;
+	}
 }
 
-std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> SharedMemory::SetupLogging() {
-	// Shared file sink
-	const auto sharedFileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
+void SharedMemory::SetupLogging() {
+	// Global spdlog settings
+	spdlog::flush_every(std::chrono::seconds(10));
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+
+	// Create global sharedFileSink
+	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
 
 	// Setup memory logger
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedFileSink);
+	sinks.push_back(sharedFileSink_);
 	log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	spdlog::register_logger(log_);
-
-	// Global spdlog settings
-	spdlog::flush_on(spdlog::level::info);
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-
-	return sharedFileSink;
+	register_logger(log_);
 }
 
 void SharedMemory::AddSocket(const SOCKET new_socket) {
@@ -180,7 +188,7 @@ void SharedMemory::DropLobby(const int id) {
 bool SharedMemory::IsInt(std::string& string) const {	
 	try {
 		// TODO iterate through string and do not rely on error
-		int id = std::stoi(string);
+		std::stoi(string);
 		return true;
 	}
 	catch (...) { return false; }

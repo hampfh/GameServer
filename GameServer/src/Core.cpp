@@ -7,9 +7,10 @@ Core::Core() {
 	clientIndex_ = 0;
 	maxConnections_ = 0;
 	seed_ = 0;
+	listening_ = socket(NULL, NULL, NULL);
 
 	// Initialization
-	sharedMemory_ = new SharedMemory();
+	sharedMemory_ = new SharedMemory;
 
 	// Setup core logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -106,7 +107,7 @@ void Core::SetupWinSock() {
 	WSADATA wsaData;
 	const int wsOk = WSAStartup(ver, &wsaData);
 	if (wsOk != 0) {
-		log_->error("Can't initialize winsock");
+		log_->error("Can't initialize winsock2");
 		return;
 	}
 
@@ -118,13 +119,13 @@ void Core::SetupWinSock() {
 	}
 
 	// Binding connections
-	sockaddr_in hint;
+	sockaddr_in hint = sockaddr_in();
 	hint.sin_family = AF_INET;
 	hint.sin_port = htons(port);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
-	bind(listening_, (sockaddr*)&hint, sizeof(hint));
+	bind(listening_, reinterpret_cast<const sockaddr*>(&hint), sizeof(hint));
 
 	// Add listening socket
 	listen(listening_, SOMAXCONN);
@@ -138,12 +139,11 @@ void Core::SetupWinSock() {
 	FD_SET(listening_, &master);
 
 	// Generate server seed
-	srand(static_cast<unsigned int>(time(nullptr)));
-	const int serverSeed = rand() % 100000;
+	std::random_device rd;
+	std::default_random_engine gen(rd());
+	seed_ = gen();
 
-	log_->info("Server seed is " + std::to_string(serverSeed));
-
-	seed_ = serverSeed;
+	log_->info("Server seed is " + std::to_string(seed_));
 
 	log_->info("Server port is " + std::to_string(port));
 
@@ -181,9 +181,8 @@ void Core::CleanUp() const {
 	// Clean up server
 	WSACleanup();
 
-	// Delete sharedMemory
-
-	delete this;
+	//delete sharedMemory_;
+	// TODO properly delete all lobbies and all clients
 }
 
 
@@ -249,7 +248,7 @@ void Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
 	}
 }
 
-void Core::Interpreter() const {
+void Core::Interpreter() {
 	std::string command;
 	while (true) {
 
@@ -311,7 +310,10 @@ void Core::Interpreter() const {
 					
 				}
 			}
-			//TODO add /stop command for server
+			else if (part[0] == "/Stop") {
+				running_ = false;
+				success = true;
+			}
 		}
 		if (success) log_->info("Performed command");
 		else log_->warn("No such command");

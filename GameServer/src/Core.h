@@ -79,7 +79,7 @@ public:
 
 		@return void
 	 */
-	void Interpreter() const;
+	void Interpreter();
 private:
 
 	bool running_;
@@ -91,7 +91,7 @@ private:
 	// Maximum connections the server will allow
 	int maxConnections_;
 
-	int seed_;
+	unsigned int seed_;
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;

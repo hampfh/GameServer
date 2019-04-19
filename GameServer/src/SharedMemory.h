@@ -22,7 +22,7 @@ public:
 
 		@return void
 	 */
-	std::shared_ptr<spdlog::sinks::rotating_file_sink_mt> SetupLogging();
+	void SetupLogging();
 	/**
 		Add a socket to the shared
 		memory and increase the
@@ -83,11 +83,12 @@ public:
 		external command for the clients
 		depending on the receiver
 
+		@param lobby Id of the lobby
 		@param receiver Id of the receiving thread, 0 for broadcast
 		@param command The command to execute, using the "Command" enum
 		@return void
 	 */
-	 void AddCoreCall(const int lobby, int receiver, int command);
+	 void AddCoreCall(int lobby, int receiver, int command);
 
 	// Getters
 
