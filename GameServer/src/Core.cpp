@@ -73,6 +73,8 @@ void Core::SetupConfig() {
 			}
 			else if (selector == "max_connections") {
 				maxConnections_ = std::stoi(value);
+			} else if (selector == "lobby_start_id_at") {
+				sharedMemory_->SetLobbyStartId(std::stoi(value));
 			}
 		}
 		log_->info("Configurations loaded!");
@@ -92,6 +94,7 @@ void Core::SetupConfig() {
 		file.put("max_connections", 10);
 		file.put(scl::comment(" Lobby settings"));
 		file.put("max_lobby_connections", 5);
+		file.put("lobby_start_id_at", 1);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 0);
 
@@ -160,8 +163,6 @@ void Core::SetupWinSock() {
 }
 
 void Core::Execute() {
-
-	log_->info("Server Starting");
 
 	while(running_) {
 		Loop();
@@ -282,7 +283,7 @@ void Core::Interpreter() {
 			}
 			else if (part[0] == "/Kick") {
 				// The first selector is lobby and the second is for client
-				if (sharedMemory_->IsInt(part[1]) && sharedMemory_->IsInt(part[2])) {
+				if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && sharedMemory_->IsInt(part[2])) {
 					BroadcastCoreCall(std::stoi(part[1]), std::stoi(part[2]), Command::kick);
 					success = true;
 				}
@@ -304,9 +305,28 @@ void Core::Interpreter() {
 						current = current->next;
 					}
 				}
+				// Second argument is lobby, third is client
 				else if (part.size() >= 4 && part[1] == "join" && sharedMemory_->IsInt(part[2]) && sharedMemory_->IsInt(part[3])) {
-					Lobby* selectedLobby = sharedMemory_->GetLobby(std::stoi(part[2]));
-					
+					const int newLobbyId = std::stoi(part[2]);
+					const int clientId = std::stoi(part[3]);
+
+					// Find the current lobby and client
+					Lobby* currentLobby = nullptr;
+					Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
+
+					if (currentClient != nullptr) {
+						currentLobby->DropClient(clientId, true);
+
+						// Move client to the selected lobby
+						Lobby* selectedLobby = sharedMemory_->GetLobby(newLobbyId);
+						selectedLobby->AddClient(currentClient);
+
+						success = true;
+					}
+					else {
+						log_->warn("Client not found");
+						continue;
+					}
 				}
 			}
 			else if (part[0] == "/Stop") {

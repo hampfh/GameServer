@@ -50,7 +50,7 @@ Lobby::Lobby(const int id, const int max_connections, SharedMemory* shared_memor
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	spdlog::register_logger(log_);
 
-	log_->info("Lobby#" + std::to_string(id) + " successfully created");
+	log_->info("Successfully created");
 }
 
 
@@ -76,7 +76,6 @@ void Lobby::CleanUp() {
 }
 
 void Lobby::Execute() {
-	log_->info("Lobby#" + std::to_string(id) + " started successfully");
 
 	while (running_) {
 		Loop();
@@ -126,7 +125,6 @@ void Lobby::InitializeSending() const {
 		while (current != nullptr) {
 
 			if (current->GetState() == State::sending) {
-				// TODO Send data to client
 				current->SetOutgoing(commandQueue_);
 				current->SetState(State::awaiting);
 				readyClients++;
@@ -177,6 +175,9 @@ void Lobby::InitializeReceiving() {
 			sharedLobbyMemory_->SetState(awaiting);
 			return;
 		}
+		if (i == 50) {
+			log_->warn("Experiencing delays");
+		}
 
 		// Sleep for half a millisecond, convert milliseconds to microseconds
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
@@ -202,19 +203,28 @@ void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) const {
 	}
 }
 
-int Lobby::AddClient(Client* client, const bool respect_limit) {
-	log_->info("Client added");
+Client* Lobby::FindClient(const int id) const {
+	Client* current = firstClient_;
 
-	// TODO check lobby max number
+	while(current != nullptr) {
+		if (current->id == id) {
+			return current;
+		}
+		current = current->next;
+	}
+	return nullptr;
+}
+
+int Lobby::AddClient(Client* client, const bool respect_limit) {
 
 	if (connectedClients_ >= maxConnections_ && maxConnections_ != 0 && respect_limit) {
+		log_->warn("Client could not be connected to lobby, lobby full");
 		return 1;
 	}
 
-	// Give the client a pointer to the lobby state
-	//client->SetLobbyStateReference(&lobbyState_);
-	//client->SetLobbyDropReference(&dropList_);
+	// Give the client a pointer to the lobby memory
 	client->SetMemory(sharedLobbyMemory_);
+	client->lobbyId = this->id;
 
 	connectedClients_++;
 
@@ -229,10 +239,11 @@ int Lobby::AddClient(Client* client, const bool respect_limit) {
 		lastClient_ = lastClient_->next;
 		lastClient_->prev = current;
 	}
+	log_->info("Client added");
 	return 0;
 }
 
-void Lobby::DropClient(const int id) {
+Client* Lobby::DropClient(const int id, const bool detach_only) {
 	Client* current = firstClient_;
 	while (current != nullptr) {
 		if (current->id == id) {
@@ -249,17 +260,31 @@ void Lobby::DropClient(const int id) {
 				lastClient_->next = nullptr;
 			} else {
 				current->prev->next = current->next;
+				current->next->prev = current->prev;
 			}
 
 			connectedClients_--;
 			log_->info("Dropped client " + std::to_string(current->id));
+
+			if (detach_only) {
+				// Tell other clients that this client has disconnected
+				commandQueue_.push_back("{" + std::to_string(current->id) +"|D}");
+				// Tell client to drop all already existing externals
+				current->SetOutgoing({"{*|D}"});
+				current->SetPrevState(receiving);
+				current->SetState(awaiting);
+				current->DropLobbyConnections();
+				return current;
+			}
+
 			// Delete client
 			delete current;
-			return;
+			return nullptr;
 		}
 		current = current->next;
 	}
 	log_->info("Client not found");
+	return nullptr;
 }
 
 void Lobby::DropAwaiting() {

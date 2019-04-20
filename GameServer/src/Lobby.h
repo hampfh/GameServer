@@ -107,6 +107,15 @@ public:
 	 */
 	void BroadcastCoreCall(int& lobby, int& receiver, int& command) const;
 	/**
+		Iterate through the lobby to try to find if a specific client
+		is withing it
+
+		@param id Id of the client to find
+		@return Client* if client is found, otherwise nullptr
+	 */
+	Client* FindClient(int id) const;
+
+	/**
 		Add a client to the lobby
 
 		@param client Connect client object to lobby
@@ -120,9 +129,12 @@ public:
 		client from the list
 		
 		@param id If of client to drop
-		@return void
+		@param detach_only Determines if the lobby should only disconnect
+		the client from itself or actually remove it
+		@return Lobby* Will return client if detached and nullptr
+		on full delete or if not found
 	*/
-	void DropClient(int id);
+	Client* DropClient(int id, bool detach_only = false);
 	/**
 		Drop all clients awaiting
 		drop

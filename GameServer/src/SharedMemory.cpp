@@ -8,8 +8,6 @@ SharedMemory::SharedMemory() {
 	// Create a global file sink
 	SetupLogging();
 
-	log_->info("Instantiated!");
-
 	coreCall_.clear();
 }
 
@@ -23,6 +21,7 @@ SharedMemory::~SharedMemory() {
 		prev->Drop();
 		prev = current;
 	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
 void SharedMemory::SetupLogging() {
@@ -72,15 +71,28 @@ void SharedMemory::DropSocket(const SOCKET socket) {
 	}
 }
 
+Client* SharedMemory::FindClient(const int client_id, Lobby** lobby) const {
+	Lobby* current = firstLobby_;
+
+	while (current != nullptr) {
+		Client* client = current->FindClient(client_id);
+		if (client != nullptr) {
+			*lobby = current;
+			return client;
+		}
+		current = current->next;
+	}
+	*lobby = nullptr;
+	return nullptr;
+}
+
 Lobby* SharedMemory::AddLobby() {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
 			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
-				SharedMemory::log_->warn("Lobby max reached");
+				log_->warn("Lobby max reached");
 				return nullptr;
 			}
-
-			spdlog::get("Shared Memory")->info("Created lobby");
 
 			// Add a new lobby and assign an id
 			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
@@ -225,3 +237,5 @@ void SharedMemory::SetTimeoutDelay(const float delay) { timeoutDelay_ = delay; }
 void SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_speed; }
 
 void SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };
+
+void SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; };

@@ -1,14 +1,16 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, const int lobby_id) : socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
+Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, const int lobby_id) : 
+socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 	isOnline_ = true;
 	state_ = none;
 	lastState_ = none;
+	paused_ = false;
 
 	loopInterval_ = std::chrono::microseconds(1000);
-	
+
 	// Setup client logger
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
@@ -16,7 +18,7 @@ Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, c
 	log_ = std::make_shared<spdlog::logger>("Client#" + std::to_string(socket), begin(sinks), end(sinks));
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
-	
+
 	log_->info("Assigned ID: " + std::to_string(id));
 }
 
@@ -34,15 +36,11 @@ void Client::Loop() {
 		// Perform send operation if serverApp is ready and
 		// the client has not already performed it
 		if (lobbyMemory_->GetState() == sending &&
-			lastState_ != sending) {
-			Send();
-		}
-		// Perform receiving operation if serverApp is ready and
-		// the client has not already performed it
+			lastState_ != sending) { Send(); }
+			// Perform receiving operation if serverApp is ready and
+			// the client has not already performed it
 		else if (lobbyMemory_->GetState() == receiving &&
-			lastState_ != receiving) {
-			Receive();
-		}
+			lastState_ != receiving) { Receive(); }
 		// Thread sleep
 		std::this_thread::sleep_for(loopInterval_);
 	}
@@ -82,9 +80,8 @@ void Client::Receive() {
 		// Encapsulate command inside a socket block
 		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
 		clientCommand_.append("}");
-	} else {
-		clientCommand_.clear();
 	}
+	else { clientCommand_.clear(); }
 
 	lastState_ = receiving;
 
@@ -101,11 +98,8 @@ void Client::Send() {
 	auto queue = outgoingCommands_;
 
 	for (auto& client : queue) {
-
 		// Skip command if it comes from the client itself
-		if (Interpret(client)[0] == std::to_string(id)) {
-			continue;
-		}
+		if (Interpret(client)[0] == std::to_string(id)) { continue; }
 
 		outgoing.append(client);
 	}
@@ -132,7 +126,6 @@ void Client::CoreCallListener() {
 			if (frame[0] == 0 &&
 				(frame[1] == lobbyId || frame[1] == 0) &&
 				(frame[2] == id || frame[2] == 0)) {
-
 				if (frame.size() != 4) {
 					log_->warn("Bad formatted call, ignoring");
 					continue;
@@ -141,22 +134,17 @@ void Client::CoreCallListener() {
 				const int command = frame[3];
 
 				// Interpret command
-				if (command == Command::start) {
-					pendingSend_.append("S");
-				}
-				else if (command == Command::kick) {
-					isOnline_ = false;
-				}
+
+				// Send start command to client
+				if (command == Command::start && lobbyId != 1) { pendingSend_.append("S"); }
+				else if (command == Command::kick) { isOnline_ = false; }
 			}
 		}
 
 		pendingSend_.append("}");
 
 		// Clear outgoing if no information
-		if (pendingSend_.length() <= 4) {
-			log_->warn("Cleared pendingSend");
-			pendingSend_.clear();
-		}
+		if (pendingSend_.length() <= 4) { pendingSend_.clear(); }
 
 		coreCall_.clear();
 	}
@@ -189,34 +177,28 @@ void Client::RequestDrop() const {
 	lobbyMemory_->AddDrop(this->id);
 }
 
-void Client::End() {
-	isOnline_ = false;
+void Client::End() { isOnline_ = false; }
+
+void Client::DropLobbyConnections() {
+
+	lobbyId = -1;
+	lobbyMemory_ = nullptr;
 }
 
-void Client::SetCoreCall(std::vector<int> coreCall) {
-	coreCall_.push_back(coreCall);
-}
+void Client::SetCoreCall(std::vector<int> coreCall) { coreCall_.push_back(coreCall); }
 
-void Client::SetSocket(const SOCKET socket) {
-	socket_ = socket;
-}
+void Client::SetSocket(const SOCKET socket) { socket_ = socket; }
 
-void Client::SetId(const int id) {
-	this->id = id;
-}
+void Client::SetId(const int id) { this->id = id; }
 
-void Client::SetInterval(const std::chrono::microseconds microseconds) {
-	loopInterval_ = microseconds;
-}
+void Client::SetInterval(const std::chrono::microseconds microseconds) { loopInterval_ = microseconds; }
 
-void Client::SetMemory(SharedLobbyMemory* lobby_memory) {
-	lobbyMemory_ = lobby_memory;
-}
+void Client::SetMemory(SharedLobbyMemory* lobby_memory) { lobbyMemory_ = lobby_memory; }
 
-void Client::SetState(const State state) {
-	state_ = state;
-}
+void Client::SetPause(const bool pause) { paused_ = pause; };
 
-void Client::SetOutgoing(const std::vector<std::string> outgoing) {
-	outgoingCommands_ = outgoing;
-}
+void Client::SetState(const State state) { state_ = state; }
+
+void Client::SetPrevState(const State state) { lastState_ = state; };
+
+void Client::SetOutgoing(const std::vector<std::string> outgoing) { outgoingCommands_ = outgoing; }

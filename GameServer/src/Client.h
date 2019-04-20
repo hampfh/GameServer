@@ -73,6 +73,13 @@ public:
 		@return void
 	 */
 	void End();
+	/**
+		Removes the connection the client has
+		to the lobby memory
+
+		@return void
+	 */
+	void DropLobbyConnections();
 
 	// Getter
 	std::string GetCommand() const { return clientCommand_; };
@@ -86,14 +93,17 @@ public:
 	void SetId(int id);
 	void SetInterval(std::chrono::microseconds microseconds);
 	void SetMemory(SharedLobbyMemory* lobby_memory);
+	void SetPause(bool pause);
 	//void SetLobbyStateReference(State* lobby_state);
 	//void SetLobbyDropReference(std::vector<int>* drop_list);
 	void SetState(State state);
+	void SetPrevState(State state);
 	void SetOutgoing(std::vector<std::string> outgoing);
 private:
 	
 	// Alive status of the socket
 	bool isOnline_;
+	bool paused_;
 
 	SOCKET socket_;
 

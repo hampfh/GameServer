@@ -11,6 +11,7 @@
 
 // Predefine class
 class Lobby;
+class Client;
 
 class SharedMemory {
 public:
@@ -41,6 +42,16 @@ public:
 		@return void
 	 */
 	void DropSocket(SOCKET socket);
+	/**
+		Iterate through the memory to try to find if a specific lobby
+		containing a specific client
+
+		@param client_id Id of the client to find
+		@param lobby Complementary parameter which will return 
+		the lobby where the client was found
+		@return Lobby* if client is found, otherwise nullptr
+	 */
+	Client* FindClient(int client_id, Lobby** lobby) const;
 	/**
 		Creates a new separate section
 		of the server, segregated from
@@ -112,6 +123,7 @@ public:
 	void SetTimeoutDelay(float delay);
 	void SetClockSpeed(int clock_speed);
 	void SetLobbyMax(int lobby_max);
+	void SetLobbyStartId(int start_id);
 
 private:
 	// A collection of all sockets
