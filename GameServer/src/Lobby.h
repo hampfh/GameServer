@@ -90,6 +90,15 @@ public:
 	 */
 	void InitializeReceiving();
 	/**
+		This method is called when the lobby
+		has timed out. The method will resend
+		it's latest command to all clients
+		which did not answer
+
+		@return void
+	 */
+	void Resend(int interrupted_connections);
+	/**
 		Clears the vector array
 		from all previous commands
 
@@ -105,7 +114,7 @@ public:
 		@param command Type of command
 		@return void
 	 */
-	void BroadcastCoreCall(int& lobby, int& receiver, int& command) const;
+	void BroadcastCoreCall(int& lobby, int& receiver, int& command);
 	/**
 		Iterate through the lobby to try to find if a specific client
 		is withing it
@@ -131,10 +140,21 @@ public:
 		@param id If of client to drop
 		@param detach_only Determines if the lobby should only disconnect
 		the client from itself or actually remove it
-		@return Lobby* Will return client if detached and nullptr
+		@return Client* Will return client if detached and nullptr
 		on full delete or if not found
 	*/
 	Client* DropClient(int id, bool detach_only = false);
+	/**
+		Drops and removes a specific
+		client from the list
+
+		@param client A pointer to the client
+		@param detach_only Determines if the lobby should only disconnect
+		the client from itself or actually remove it
+		@return Client* Will return client if detached and nullptr
+		on full delete or if not found
+	*/
+	Client* DropClient(Client* client, bool detach_only = false);
 	/**
 		Drop all clients awaiting
 		drop
@@ -185,6 +205,8 @@ private:
 
 	// Dynamic allocated array holding all clients responses
 	std::vector<std::string> commandQueue_;
+
+	int lastCoreCall_[3];
 	
 	// Count of clients that have performed a core call
 	int coreCallPerformedCount_;

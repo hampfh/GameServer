@@ -114,26 +114,37 @@ void Lobby::Loop() {
 }
 
 void Lobby::InitializeSending() const {
+
+	// Iterate through all clients
+	Client* current = firstClient_;
+	while (current != nullptr) {
+
+		// Give client data
+		current->SetOutgoing(commandQueue_);
+
+		current = current->next;
+	}
+
 	// Tell clients to start sending
 	sharedLobbyMemory_->SetState(sending);
 
 	int readyClients = 0;
 
+	// Check if all clients have sent
 	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
 		// Iterate through all clients
-		Client* current = firstClient_;
+		current = firstClient_;
 		while (current != nullptr) {
 
-			if (current->GetState() == State::sending) {
-				current->SetOutgoing(commandQueue_);
-				current->SetState(State::awaiting);
+			if (current->GetState() == State::sent) {
+				current->SetState(State::done_sending);
 				readyClients++;
 			}
 
 			current = current->next;
 		}
 		if (readyClients >= connectedClients_) {
-			sharedLobbyMemory_->SetState(awaiting);
+			sharedLobbyMemory_->SetState(none);
 			return;
 		}
 
@@ -141,8 +152,9 @@ void Lobby::InitializeSending() const {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	sharedLobbyMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread (Sending)");
+	sharedLobbyMemory_->SetState(none);
+	log_->error("Timed out while waiting for client thread (Sending)");
+	throw std::exception("Lobby could not give distribute information to all clients");
 }
 
 void Lobby::InitializeReceiving() {
@@ -160,8 +172,8 @@ void Lobby::InitializeReceiving() {
 		while (current != nullptr) {
 			
 			// If client has received response then take it
-			if (current->GetState() == State::receiving) {
-				current->SetState(State::awaiting);
+			if (current->GetState() == State::received) {
+				current->SetState(State::done_receiving);
 				std::string clientCommand = current->GetCommand();
 				if (!clientCommand.empty()) {
 					commandQueue_.push_back(current->GetCommand());
@@ -172,30 +184,96 @@ void Lobby::InitializeReceiving() {
 			current = current->next;
 		}
 		if (readyClients >= connectedClients_) {
-			sharedLobbyMemory_->SetState(awaiting);
+			sharedLobbyMemory_->SetState(none);
 			return;
-		}
-		if (i == 50) {
-			log_->warn("Experiencing delays");
 		}
 
 		// Sleep for half a millisecond, convert milliseconds to microseconds
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	// TODO kick the player which is lagging behind
+	Resend(connectedClients_ - readyClients);
 
-	sharedLobbyMemory_->SetState(awaiting);
-	log_->warn("Timed out while waiting for client thread (Receiving)");
+	sharedLobbyMemory_->SetState(none);
 	
+}
+
+void Lobby::Resend(const int interrupted_connections) {
+
+	log_->info("Resending data for clients");
+
+	// Iterate through all clients
+	Client* current = firstClient_;
+	while (current != nullptr) {
+
+		// Target clients which have not received anything
+		if (current->GetState() == State::receiving) {
+			current->SetCoreCall({0, lastCoreCall_[0], lastCoreCall_[1] , lastCoreCall_[2] });
+			current->CoreCallListener();
+			current->Send();
+		}
+
+		current = current->next;
+	}
+
+	// Ready clients excluding all clients that have already been processed
+	int readyClients = 0;
+	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
+		// Iterate through all clients
+		current = firstClient_;
+		while (current != nullptr) {
+
+			// Target clients which have not received anything
+			if (current->GetState() == State::received) {
+				current->SetState(State::done_receiving);
+				std::string clientCommand = current->GetCommand();
+				if (!clientCommand.empty()) {
+					commandQueue_.push_back(current->GetCommand());
+				}
+				readyClients++;
+			}
+
+			current = current->next;
+		}
+
+		if (readyClients >= interrupted_connections) {
+			return;
+		}
+
+		// Sleep for half a millisecond, convert milliseconds to microseconds
+		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
+	}
+	
+	// Kick non responding clients (all clients which are not ready at this point)
+
+	current = (firstClient_ == nullptr ? nullptr : firstClient_);
+
+	while (current != nullptr) {
+
+		// Target clients which have not received anything
+		if (current->GetState() != State::done_receiving) {
+			auto* clientToDrop = current;
+			current = current->next;
+			log_->warn("Dropped client " + std::to_string(clientToDrop->id) + ". No response");
+			DropClient(clientToDrop);
+			continue;
+		}
+
+		current = current->next;
+	}
 }
 
 void Lobby::ResetCommandQueue() {
 	commandQueue_.clear();
 }
 
-void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) const {
+void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) {
 	Client* current = firstClient_;
+
+	// Update last core call
+	lastCoreCall_[0] = lobby;
+	lastCoreCall_[1] = receiver;
+	lastCoreCall_[2] = command;
 
 	while (current != nullptr) {
 		current->SetCoreCall({0, lobby, receiver, command});
@@ -272,18 +350,54 @@ Client* Lobby::DropClient(const int id, const bool detach_only) {
 				// Tell client to drop all already existing externals
 				current->SetOutgoing({"{*|D}"});
 				current->SetPrevState(receiving);
-				current->SetState(awaiting);
+				current->SetState(none);
 				current->DropLobbyConnections();
 				return current;
 			}
 
-			// Delete client
-			delete current;
+			current->End();
 			return nullptr;
 		}
 		current = current->next;
 	}
 	log_->info("Client not found");
+	return nullptr;
+}
+
+Client* Lobby::DropClient(Client* client, const bool detach_only) {
+	// Drop client
+	if (client == firstClient_ && firstClient_ == lastClient_) {
+		firstClient_ = nullptr;
+		lastClient_ = nullptr;
+	}
+	else if (client == firstClient_) {
+		firstClient_ = client->next;
+		firstClient_->prev = nullptr;
+	}
+	else if (client == lastClient_) {
+		lastClient_ = client->prev;
+		lastClient_->next = nullptr;
+	}
+	else {
+		client->prev->next = client->next;
+		client->next->prev = client->prev;
+	}
+
+	connectedClients_--;
+	log_->info("Dropped client " + std::to_string(client->id));
+
+	if (detach_only) {
+		// Tell other clients that this client has disconnected
+		commandQueue_.push_back("{" + std::to_string(client->id) + "|D}");
+		// Tell client to drop all already existing externals
+		client->SetOutgoing({ "{*|D}" });
+		client->SetPrevState(receiving);
+		client->SetState(none);
+		client->DropLobbyConnections();
+		return client;
+	}
+
+	client->End();
 	return nullptr;
 }
 

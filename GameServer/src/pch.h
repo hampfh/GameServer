@@ -25,9 +25,12 @@ typedef std::mt19937 default_random_engine;
 
 enum State {
 	none = 0,
-	awaiting = 1,
-	receiving = 2,
-	sending = 3,
+	receiving = 1,
+	received = 2,
+	done_receiving = 3,
+	sending = 4,
+	sent = 5,
+	done_sending = 6
 };
 
 enum Command {

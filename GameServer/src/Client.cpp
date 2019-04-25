@@ -48,10 +48,12 @@ void Client::Loop() {
 	log_->info("Thread " + std::to_string(id) + " exited the loop");
 	RequestDrop();
 
-	// Object will be delete by it's parent (lobby)
+	delete this;
 }
 
 void Client::Receive() {
+
+	state_ = receiving;
 
 	char incoming[1024];
 
@@ -69,7 +71,7 @@ void Client::Receive() {
 		// Tell other clients that this client has disconnected
 		clientCommand_ = "{" + std::to_string(id) + "|D}";
 		lastState_ = receiving;
-		state_ = receiving;
+		state_ = received;
 		return;
 	}
 
@@ -86,11 +88,13 @@ void Client::Receive() {
 	lastState_ = receiving;
 
 	// Ready call for client
-	state_ = receiving;
+	state_ = received;
 
 }
 
 void Client::Send() {
+	state_ = sending;
+
 	// Append potential command from core
 	std::string outgoing = pendingSend_;
 
@@ -110,7 +114,7 @@ void Client::Send() {
 
 	// Client ready
 	lastState_ = sending;
-	state_ = sending;
+	state_ = sent;
 
 	// Reset pending send
 	pendingSend_.clear();

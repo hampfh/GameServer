@@ -65,7 +65,7 @@ void Core::SetupConfig() {
 			else if (selector == "timeout_delay") {
 				sharedMemory_->SetTimeoutDelay(std::stof(value));
 			}
-			else if (selector == "max_lobby_connections") {
+			else if (selector == "lobby_max_connections") {
 				sharedMemory_->SetLobbyMax(std::stoi(value));
 			}
 			else if (selector == "start_id_at") {
@@ -89,11 +89,11 @@ void Core::SetupConfig() {
 		file.put(scl::comment(" Server settings"));
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
-		file.put("timeout_tries", 30000);
+		file.put("timeout_tries", 30);
 		file.put("timeout_delay", 0.5);
 		file.put("max_connections", 10);
 		file.put(scl::comment(" Lobby settings"));
-		file.put("max_lobby_connections", 5);
+		file.put("lobby_max_connections", 5);
 		file.put("lobby_start_id_at", 1);
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 0);
