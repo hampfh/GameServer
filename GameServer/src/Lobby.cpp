@@ -87,15 +87,17 @@ void Lobby::Execute() {
 
 void Lobby::Loop() {
 
-	DropAwaiting();
+	if (connectedClients_ > 0) {
+		DropAwaiting();
 
-	// Receiving state
-	if (internalState_ == State::receiving) {
-		InitializeReceiving();
-	}
-	// Sending state
-	else if (internalState_ == State::sending) {
-		InitializeSending();
+		// Receiving state
+		if (internalState_ == State::receiving) {
+			InitializeReceiving();
+		}
+		// Sending state
+		else if (internalState_ == State::sending) {
+			InitializeSending();
+		}
 	}
 
 	// Swap state

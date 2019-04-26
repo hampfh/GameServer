@@ -312,16 +312,20 @@ void Core::Interpreter() {
 
 					// Find the current lobby and client
 					Lobby* currentLobby = nullptr;
+					Lobby* targetLobby = sharedMemory_->GetLobby(newLobbyId);
 					Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
 
 					if (currentClient != nullptr) {
-						currentLobby->DropClient(clientId, true);
+						if (targetLobby != nullptr) {
+							currentLobby->DropClient(clientId, true);
 
-						// Move client to the selected lobby
-						Lobby* selectedLobby = sharedMemory_->GetLobby(newLobbyId);
-						selectedLobby->AddClient(currentClient);
+							// Move client to the selected lobby
+							targetLobby->AddClient(currentClient);
 
-						success = true;
+							success = true;
+						} else {
+							log_->warn("Lobby#" + std::to_string(clientId) + " not found");
+						}
 					}
 					else {
 						log_->warn("Client not found");
