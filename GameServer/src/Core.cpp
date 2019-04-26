@@ -275,30 +275,34 @@ void Core::Interpreter() {
 		bool success = false;
 
 		if (!part.empty()) {
-			if (part.size() >= 2 && part[0] == "/Start") {
-				if (sharedMemory_->IsInt(part[1])) {
-					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
-					success = true;
-				}
-			}
-			else if (part[0] == "/Kick") {
+			if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 				// The first selector is lobby and the second is for client
-				if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && sharedMemory_->IsInt(part[2])) {
-					BroadcastCoreCall(std::stoi(part[1]), std::stoi(part[2]), Command::kick);
+				Lobby* clientLobby = nullptr;
+				Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
+
+				if (currentClient != nullptr && clientLobby != nullptr) {
+					clientLobby->DropClient(currentClient);
 					success = true;
+				} else {
+					log_->warn("Client or lobby not found");
 				}
+				
 			} else if (part[0] == "/Lobby") {
 				if (part.size() >= 2 && part[1] == "create") {
 					Lobby* newLobby = sharedMemory_->AddLobby();
 					log_->info("Lobby created with id: " + std::to_string(newLobby->id));
 					success = true;
 				}
-				else if (part.size() >= 3 && part[1] == "drop" && sharedMemory_->IsInt(part[2])) {
+				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "start") {
+					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
+					success = true;
+				}
+				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 					Lobby* current = sharedMemory_->GetFirstLobby();
 					// Search for the lobby with the assigned id
 					while (current != nullptr) {
-						if (current->id == std::stoi(part[2])) {
-							sharedMemory_->DropLobby(std::stoi(part[2]));
+						if (current->id == std::stoi(part[1])) {
+							sharedMemory_->DropLobby(std::stoi(part[1]));
 							success = true;
 							break;
 						}
@@ -306,8 +310,8 @@ void Core::Interpreter() {
 					}
 				}
 				// Second argument is lobby, third is client
-				else if (part.size() >= 4 && part[1] == "join" && sharedMemory_->IsInt(part[2]) && sharedMemory_->IsInt(part[3])) {
-					const int newLobbyId = std::stoi(part[2]);
+				else if (part.size() >= 4 && sharedMemory_->IsInt(part[1]) && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
+					const int newLobbyId = std::stoi(part[1]);
 					const int clientId = std::stoi(part[3]);
 
 					// Find the current lobby and client
