@@ -175,9 +175,7 @@ public:
 	// Getters
 	//State GetState() const { return lobbyState_; };
 	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
-
-	// Setters
-	
+	int GetConnectedClients() const { return connectedClients_; };
 
 private:
 	bool running_;

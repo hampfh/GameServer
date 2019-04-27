@@ -296,6 +296,20 @@ void Core::Interpreter() {
 					Lobby* newLobby = sharedMemory_->AddLobby();
 					log_->info("Lobby created with id: " + std::to_string(newLobby->id));
 				}
+				else if (part.size() >= 2 && part[1] == "list") {
+					// Compose lobby data
+					Lobby* current = sharedMemory_->GetFirstLobby();
+					std::string result = "\n===== Running lobbies =====\n";
+					while (current != nullptr) {
+						result.append("Lobby#" + std::to_string(current->id) + " (" + std::to_string(current->GetConnectedClients()) + " clients)" + 
+							(current == sharedMemory_->GetMainLobby() ? " (main)" : "") + "\n");
+						current = current->next;
+					}
+					result.append("===== ####### ####### =====");
+
+					// Print data
+					log_->info(result);
+				}
 				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "start") {
 					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
 					log_->info("Lobby started!");
