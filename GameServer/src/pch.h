@@ -8,14 +8,32 @@
 #include <ctime>
 #include <string>
 #include <mutex>
+#include <random>
 
 // Logging library
-#include "spdlog/spdlog.h";
-#include "spdlog/sinks/stdout_sinks.h";
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/stdout_sinks.h"
 #include "spdlog/sinks/rotating_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 // SCL - configuration file library
-#include "SCL/SCL.hpp";
+#include "SCL/SCL.hpp"
+
+typedef std::mt19937 default_random_engine;
 
 #pragma comment(lib,"WS2_32")
+
+enum State {
+	none = 0,
+	receiving = 1,
+	received = 2,
+	done_receiving = 3,
+	sending = 4,
+	sent = 5,
+	done_sending = 6
+};
+
+enum Command {
+	start = 0,
+	kick = 1
+};

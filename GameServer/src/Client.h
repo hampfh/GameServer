@@ -1,18 +1,24 @@
 #pragma once
 #include "SharedMemory.h"
+#include "Lobby.h"
 
 /**
     Client.h
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 0.4 08/04/2019
+    @version 0.5 08/04/2019
 */
+
+// Predefining classes
+class SharedMemory;
+class SharedLobbyMemory;
 
 class Client {
 public:
-	Client(SOCKET socket, SharedMemory* shared_memory, int id);
+	Client(SOCKET socket, SharedMemory* shared_memory, int id, int lobby_id);
 	~Client();
+
 	/**
 		The loop fo the client thread, this alternates 
 		between sending and receiving mode
@@ -58,31 +64,82 @@ public:
 
 		@return void
 	 */
-	void Drop() const;
+	void RequestDrop() const;
+	/**
+		Method does not delete anything but instead 
+		tell the thread to exit and finish everything
+		by itself
+
+		@return void
+	 */
+	void End();
+	/**
+		Removes the connection the client has
+		to the lobby memory
+
+		@return void
+	 */
+	void DropLobbyConnections();
+
+	// Getter
+	std::string GetCommand() const { return clientCommand_; };
+	State& GetState() { return state_; };
+	SOCKET& GetSocket() { return socket_; };
 
 	// Setters
 
+	void SetCoreCall(std::vector<int> coreCall);
 	void SetSocket(SOCKET socket);
 	void SetId(int id);
 	void SetInterval(std::chrono::microseconds microseconds);
+	void SetMemory(SharedLobbyMemory* lobby_memory);
+	void SetPause(bool pause);
+	//void SetLobbyStateReference(State* lobby_state);
+	//void SetLobbyDropReference(std::vector<int>* drop_list);
+	void SetState(State state);
+	void SetPrevState(State state);
+	void SetOutgoing(std::vector<std::string> outgoing);
 private:
-	int id_;
+	
 	// Alive status of the socket
 	bool isOnline_;
+	bool paused_;
+	// The client thread will never delete itself if it is attached to something. When the lobby drop a client it changes the attached state via the End() method.
+	bool attached_;
 
 	SOCKET socket_;
-	// Class containing all information for the server. This class is passed to all threads 
-	SharedMemory* sharedMemory_;
+
 	std::chrono::microseconds loopInterval_;
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;
 
-	State clientState_;
-
 	// Received response from client socket
 	std::string clientCommand_;
 	// Awaiting commands for coreCall
 	std::string pendingSend_;
+
+	// Dynamic allocated array holding outgoing commands
+	std::vector<std::string> outgoingCommands_;
+
+	State state_;
+	State lastState_;
+
+	SharedMemory* sharedMemory_ = nullptr;
+	SharedLobbyMemory* lobbyMemory_ = nullptr;
+
+	std::vector<std::vector<int>> coreCall_;
+public:
+	// Client specifiers
+
+	int lobbyId;
+
+	// The id of the client
+	int id;
+	// Points to next lobby
+	Client* next = nullptr;
+	// Points to previous lobby
+	Client* prev = nullptr;
+
 };
 
