@@ -53,12 +53,12 @@ void Core::SetupConfig() {
 			std::string& selector = setting.first;
 			std::string& value = setting.second;
 
-      if (selector == "server_port") {
+			if (selector == "server_port") {
 				port_ = std::stoi(value);
 			}
 			else if (selector == "clock_speed") {
 				sharedMemory_->SetClockSpeed(std::stoi(value));
-      }
+			}
 			else if(selector == "socket_processing_max") {
 				timeInterval_.tv_usec = std::stoi(value) * 1000;
 			}
@@ -76,7 +76,8 @@ void Core::SetupConfig() {
 			}
 			else if (selector == "max_connections") {
 				maxConnections_ = std::stoi(value);
-			} else if (selector == "lobby_start_id_at") {
+			} 
+			else if (selector == "lobby_start_id_at") {
 				sharedMemory_->SetLobbyStartId(std::stoi(value));
 			}
 		}
@@ -278,8 +279,6 @@ void Core::Interpreter() {
 			command = matcher.suffix().str();
 		}
 
-		bool success = false;
-
 		if (!part.empty()) {
 			if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 				// The first selector is lobby and the second is for client
@@ -300,6 +299,10 @@ void Core::Interpreter() {
 				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "start") {
 					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
 					log_->info("Lobby started!");
+				}
+				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "pause") {
+					BroadcastCoreCall(std::stoi(part[1]), 0, Command::pause);
+					log_->info("Lobby paused!");
 				}
 				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 

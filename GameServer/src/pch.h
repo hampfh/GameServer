@@ -35,5 +35,6 @@ enum State {
 
 enum Command {
 	start = 0,
-	kick = 1
+	pause = 1,
+	kick = 2
 };

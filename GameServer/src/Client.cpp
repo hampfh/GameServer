@@ -155,8 +155,19 @@ void Client::CoreCallListener() {
 				// Interpret command
 
 				// Send start command to client
-				if (command == Command::start && lobbyId != 1) { pendingSend_.append("S"); }
-				else if (command == Command::kick) { isOnline_ = false; }
+				switch (command) {
+					case Command::start:
+						pendingSend_.append("S");
+						break;
+					case Command::pause:
+						pendingSend_.append("P");
+						break;
+					case Command::kick:
+						isOnline_ = false;
+						break;
+					default:
+						break;
+				}
 			}
 		}
 
