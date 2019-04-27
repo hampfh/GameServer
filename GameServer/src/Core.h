@@ -84,6 +84,8 @@ private:
 
 	bool running_;
 
+	int port_;
+
 	SOCKET listening_;
 
 	// Id index
@@ -101,6 +103,5 @@ private:
 	fd_set workingSet_;
 
 	SharedMemory* sharedMemory_ = nullptr;
-
 };
 

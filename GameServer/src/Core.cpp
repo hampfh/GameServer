@@ -49,13 +49,16 @@ void Core::SetupConfig() {
 		// Load content from conf file
 		scl::config_file file("server.conf", scl::config_file::READ);
 
-		for (auto setting : file) {
+		for (std::pair<std::string, std::string> setting : file) {
 			std::string& selector = setting.first;
 			std::string& value = setting.second;
 
-			if (selector == "clock_speed") {
-				sharedMemory_->SetClockSpeed(std::stoi(value));
+      if (selector == "server_port") {
+				port_ = std::stoi(value);
 			}
+			else if (selector == "clock_speed") {
+				sharedMemory_->SetClockSpeed(std::stoi(value));
+      }
 			else if(selector == "socket_processing_max") {
 				timeInterval_.tv_usec = std::stoi(value) * 1000;
 			}
@@ -87,12 +90,15 @@ void Core::SetupConfig() {
 		
 		// Generating settings
 		file.put(scl::comment(" Server settings"));
+		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
+		file.put("server_port", 15000);
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
 		file.put("timeout_tries", 30);
 		file.put("timeout_delay", 0.5);
 		file.put("max_connections", 10);
-		file.put(scl::comment(" Lobby settings"));
+
+    file.put(scl::comment(" Lobby settings"));
 		file.put("lobby_max_connections", 5);
 		file.put("lobby_start_id_at", 1);
 		file.put(scl::comment(" Client settings"));;
@@ -110,8 +116,6 @@ void Core::SetupConfig() {
 }
 
 void Core::SetupWinSock() {
-
-	const int port = 15000;
 
 	// Initialize win sock	
 	const WORD ver = MAKEWORD(2, 2);
@@ -132,7 +136,7 @@ void Core::SetupWinSock() {
 	// Binding connections
 	sockaddr_in hint = sockaddr_in();
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(port);
+	hint.sin_port = htons(port_);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
@@ -156,7 +160,7 @@ void Core::SetupWinSock() {
 
 	log_->info("Server seed is " + std::to_string(seed_));
 
-	log_->info("Server port is " + std::to_string(port));
+	log_->info("Server port is " + std::to_string(port_));
 
 	// Assign
 	sharedMemory_->SetSockets(master);
@@ -214,6 +218,7 @@ void Core::InitializeReceiving(const int select_result) {
 
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
+
 			// Send the message to the new client
 			send(newClient, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
 
@@ -221,6 +226,7 @@ void Core::InitializeReceiving(const int select_result) {
 			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
 
 			//send(newClient, std::to_string(clientIndex_).c_str(), static_cast<int>(std::to_string(clientIndex_).size()) + 1, 0);
+
 			// wait a little bit before sending the next message
 			std::this_thread::sleep_for(std::chrono::microseconds(10));
 
