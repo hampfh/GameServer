@@ -86,7 +86,31 @@ Client* SharedMemory::FindClient(const int client_id, Lobby** lobby) const {
 	return nullptr;
 }
 
-Lobby* SharedMemory::AddLobby() {
+Lobby* SharedMemory::FindLobby(const int lobby_id) const {
+	Lobby* current = firstLobby_;
+
+	while (current != nullptr) {
+		if (current->GetId() == lobby_id) {
+			return current;
+		}
+		current = current->next;
+	}
+	return nullptr;
+}
+
+Lobby* SharedMemory::FindLobby(std::string& name_tag) const {
+	Lobby* current = firstLobby_;
+
+	while (current != nullptr) {
+		if (current->GetNameTag() == name_tag) {
+			return current;
+		}
+		current = current->next;
+	}
+	return nullptr;
+}
+
+Lobby* SharedMemory::AddLobby(std::string name) {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
 			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
@@ -94,8 +118,8 @@ Lobby* SharedMemory::AddLobby() {
 				return nullptr;
 			}
 
-			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
+			// Add a new lobby and assign an id_
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
 
 			// Connect to list
 			if (firstLobby_ == nullptr) {
@@ -130,8 +154,9 @@ Lobby* SharedMemory::CreateMainLobby() {
 				log_->info("Tried to create secondary main lobby, ignoring");
 				return nullptr;
 			}
-			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
+			std::string name = "main";
+			// Add a new lobby and assign an id_
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
 
 			lobbiesAlive_++;
 
@@ -162,7 +187,7 @@ void SharedMemory::DropLobby(const int id) {
 			// Find lobby in list
 			while (current != nullptr) {
 				// Disconnect lobby from list
-				if (current->id == id) {
+				if (current->GetId() == id) {
 					// Targeted lobby is first in list
 					if (current == firstLobby_ && firstLobby_ == lastLobby_) {
 						firstLobby_ = nullptr;
@@ -183,7 +208,7 @@ void SharedMemory::DropLobby(const int id) {
 					lobbiesAlive_--;
 
 					// Delete the lobby
-					log_->info("Dropped lobby " + std::to_string(current->id));
+					log_->info("Dropped lobby " + std::to_string(current->GetId()));
 					current->Drop();
 					break;
 				}
@@ -219,11 +244,24 @@ Lobby* SharedMemory::GetLobby(const int id) const {
 	// Find lobby in list
 	while (current != nullptr) {
 		// Disconnect lobby from list
-		if (current->id == id) { return current; }
+		if (current->GetId() == id) { return current; }
 
 		current = current->next;
 	}
 	return nullptr;
+}
+
+int SharedMemory::GetLobbyId(std::string& string) const {
+	if (!IsInt(string)) {
+		Lobby* targetLobby = FindLobby(string);
+		if (targetLobby != nullptr) {
+			return targetLobby->GetId();
+		}
+		
+		log_->warn("No such lobby found");
+		return -1;
+	}	
+	return std::stoi(string);
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }

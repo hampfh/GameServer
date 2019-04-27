@@ -32,12 +32,13 @@ void SharedLobbyMemory::SetState(const State state) {
 }
 
 
-Lobby::Lobby(const int id, const int max_connections, SharedMemory* shared_memory) : maxConnections_(max_connections), sharedMemory_(shared_memory), id(id) {
+Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, SharedMemory* shared_memory) : maxConnections_(max_connections), sharedMemory_(shared_memory), id_(id), nameTag_(name_tag) {
 	//lobbyState_ = none;
 	internalState_ = none;
 	coreCallPerformedCount_ = 0;
 	connectedClients_ = 0;
 	commandQueue_.clear();
+	*lastCoreCall_ = {};
 
 	running_ = true;
 	sharedLobbyMemory_ = new SharedLobbyMemory;
@@ -72,7 +73,7 @@ void Lobby::CleanUp() {
 	DropAwaiting();
 
 	// Delete log
-	spdlog::drop("Lobby#" + std::to_string(id));
+	spdlog::drop("Lobby#" + std::to_string(id_));
 }
 
 void Lobby::Execute() {
@@ -304,7 +305,7 @@ int Lobby::AddClient(Client* client, const bool respect_limit) {
 
 	// Give the client a pointer to the lobby memory
 	client->SetMemory(sharedLobbyMemory_);
-	client->lobbyId = this->id;
+	client->lobbyId = this->id_;
 	client->SetState(none);
 	client->SetPrevState((this->internalState_ == State::sending ? State::received : State::sending));
 

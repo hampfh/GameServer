@@ -134,7 +134,7 @@ public:
 
 	int lobbyId;
 
-	// The id of the client
+	// The id_ of the client
 	int id;
 	// Points to next lobby
 	Client* next = nullptr;
