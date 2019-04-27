@@ -405,6 +405,7 @@ Client* Lobby::DropClient(Client* client, const bool detach_only) {
 
 void Lobby::DropAwaiting() {
 	for (auto clientId : sharedLobbyMemory_->GetDropList()) {
+		
 		DropClient(clientId);
 	}
 	sharedLobbyMemory_->ClearDropList();

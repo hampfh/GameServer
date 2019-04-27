@@ -104,6 +104,8 @@ private:
 	// Alive status of the socket
 	bool isOnline_;
 	bool paused_;
+	// The client thread will never delete itself if it is attached to something. When the lobby drop a client it changes the attached state via the End() method.
+	bool attached_;
 
 	SOCKET socket_;
 
