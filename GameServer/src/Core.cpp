@@ -282,7 +282,6 @@ void Core::Interpreter() {
 
 				if (currentClient != nullptr && clientLobby != nullptr) {
 					clientLobby->DropClient(currentClient);
-					success = true;
 				} else {
 					log_->warn("Client or lobby not found");
 				}
@@ -291,23 +290,28 @@ void Core::Interpreter() {
 				if (part.size() >= 2 && part[1] == "create") {
 					Lobby* newLobby = sharedMemory_->AddLobby();
 					log_->info("Lobby created with id: " + std::to_string(newLobby->id));
-					success = true;
 				}
 				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "start") {
 					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
-					success = true;
+					log_->info("Lobby started!");
 				}
 				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
-					Lobby* current = sharedMemory_->GetFirstLobby();
-					// Search for the lobby with the assigned id
-					while (current != nullptr) {
-						if (current->id == std::stoi(part[1])) {
-							sharedMemory_->DropLobby(std::stoi(part[1]));
-							success = true;
-							break;
+
+					// Can't drop main lobby
+					if (std::stoi(part[1]) != sharedMemory_->GetMainLobby()->id) {
+						Lobby* current = sharedMemory_->GetFirstLobby();
+						// Search for the lobby with the assigned id
+						while (current != nullptr) {
+							if (current->id == std::stoi(part[1])) {
+								sharedMemory_->DropLobby(std::stoi(part[1]));
+								break;
+							}
+							current = current->next;
 						}
-						current = current->next;
+					} else {
+						log_->warn("Can't drop main lobby");
 					}
+					continue;
 				}
 				// Second argument is lobby, third is client
 				else if (part.size() >= 4 && sharedMemory_->IsInt(part[1]) && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
@@ -326,7 +330,6 @@ void Core::Interpreter() {
 							// Move client to the selected lobby
 							targetLobby->AddClient(currentClient);
 
-							success = true;
 						} else {
 							log_->warn("Lobby#" + std::to_string(clientId) + " not found");
 						}
@@ -339,10 +342,8 @@ void Core::Interpreter() {
 			}
 			else if (part[0] == "/Stop") {
 				running_ = false;
-				success = true;
 			}
 		}
-		if (success) log_->info("Performed command");
 		else log_->warn("No such command");
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}

@@ -97,7 +97,7 @@ public:
 
 		@return void
 	 */
-	void Resend(int interrupted_connections);
+	void ResendReceive(int interrupted_connections);
 	/**
 		Clears the vector array
 		from all previous commands

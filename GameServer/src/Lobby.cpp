@@ -194,13 +194,13 @@ void Lobby::InitializeReceiving() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	Resend(connectedClients_ - readyClients);
+	ResendReceive(connectedClients_ - readyClients);
 
 	sharedLobbyMemory_->SetState(none);
 	
 }
 
-void Lobby::Resend(const int interrupted_connections) {
+void Lobby::ResendReceive(const int interrupted_connections) {
 
 	log_->info("Resending data for clients");
 
@@ -305,6 +305,8 @@ int Lobby::AddClient(Client* client, const bool respect_limit) {
 	// Give the client a pointer to the lobby memory
 	client->SetMemory(sharedLobbyMemory_);
 	client->lobbyId = this->id;
+	client->SetState(none);
+	client->SetPrevState((this->internalState_ == State::sending ? State::received : State::sending));
 
 	connectedClients_++;
 
@@ -349,11 +351,14 @@ Client* Lobby::DropClient(const int id, const bool detach_only) {
 			if (detach_only) {
 				// Tell other clients that this client has disconnected
 				commandQueue_.push_back("{" + std::to_string(current->id) +"|D}");
-				// Tell client to drop all already existing externals
-				current->SetOutgoing({"{*|D}"});
-				current->SetPrevState(receiving);
-				current->SetState(none);
+				
 				current->DropLobbyConnections();
+				
+				current->SetPrevState(none);
+				current->SetState(none);
+				// Tell client to drop all already existing externals
+				current->SetOutgoing({ "{*|D}" });
+				current->Send();
 				return current;
 			}
 

@@ -34,16 +34,23 @@ void Client::Loop() {
 		// Listen for calls from core
 		CoreCallListener();
 
-		// Perform send operation if serverApp is ready and
-		// the client has not already performed it
-		if (lobbyMemory_->GetState() == sending &&
-			lastState_ != sending) { Send(); }
+		// Don't send and receive in transition states between lobbies
+		if (lobbyMemory_ != nullptr) {
+			// Perform send operation if serverApp is ready and
+			// the client has not already performed it
+			if (lobbyMemory_->GetState() == sending &&
+				lastState_ != sending) {
+				Send();
+			}
 			// Perform receiving operation if serverApp is ready and
 			// the client has not already performed it
-		else if (lobbyMemory_->GetState() == receiving &&
-			lastState_ != receiving) { Receive(); }
-		// Thread sleep
-		std::this_thread::sleep_for(loopInterval_);
+			else if (lobbyMemory_->GetState() == receiving &&
+				lastState_ != receiving) {
+				Receive();
+			}
+			// Thread sleep
+			std::this_thread::sleep_for(loopInterval_);
+		}
 	}
 
 	log_->info("Thread " + std::to_string(id) + " exited the loop");
