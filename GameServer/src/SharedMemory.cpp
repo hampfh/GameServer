@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SharedMemory.h"
+#include <experimental/filesystem>
 
 SharedMemory::SharedMemory() {
 
@@ -25,12 +26,18 @@ SharedMemory::~SharedMemory() {
 }
 
 void SharedMemory::SetupLogging() {
-	// Global spdlog settings
-	spdlog::flush_every(std::chrono::seconds(10));
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	const std::string logFilePath = "logs/";
 
+	// If log directory does not exists it is created
+	std::experimental::filesystem::create_directory(logFilePath);
+
+	// Global spdlog settings
+	spdlog::flush_every(std::chrono::seconds(4));
+	spdlog::flush_on(spdlog::level::warn);
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	
 	// Create global sharedFileSink
-	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
+	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
 
 	// Setup memory logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -86,7 +93,31 @@ Client* SharedMemory::FindClient(const int client_id, Lobby** lobby) const {
 	return nullptr;
 }
 
-Lobby* SharedMemory::AddLobby() {
+Lobby* SharedMemory::FindLobby(const int lobby_id) const {
+	Lobby* current = firstLobby_;
+
+	while (current != nullptr) {
+		if (current->GetId() == lobby_id) {
+			return current;
+		}
+		current = current->next;
+	}
+	return nullptr;
+}
+
+Lobby* SharedMemory::FindLobby(std::string& name_tag) const {
+	Lobby* current = firstLobby_;
+
+	while (current != nullptr) {
+		if (current->GetNameTag() == name_tag) {
+			return current;
+		}
+		current = current->next;
+	}
+	return nullptr;
+}
+
+Lobby* SharedMemory::AddLobby(std::string name) {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
 			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
@@ -94,8 +125,8 @@ Lobby* SharedMemory::AddLobby() {
 				return nullptr;
 			}
 
-			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
+			// Add a new lobby and assign an id_
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
 
 			// Connect to list
 			if (firstLobby_ == nullptr) {
@@ -130,8 +161,9 @@ Lobby* SharedMemory::CreateMainLobby() {
 				log_->info("Tried to create secondary main lobby, ignoring");
 				return nullptr;
 			}
-			// Add a new lobby and assign an id
-			Lobby* newLobby = new Lobby(lobbyIndex_++, lobbyMax_, this);
+			std::string name = "main";
+			// Add a new lobby and assign an id_
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
 
 			lobbiesAlive_++;
 
@@ -162,7 +194,7 @@ void SharedMemory::DropLobby(const int id) {
 			// Find lobby in list
 			while (current != nullptr) {
 				// Disconnect lobby from list
-				if (current->id == id) {
+				if (current->GetId() == id) {
 					// Targeted lobby is first in list
 					if (current == firstLobby_ && firstLobby_ == lastLobby_) {
 						firstLobby_ = nullptr;
@@ -183,7 +215,7 @@ void SharedMemory::DropLobby(const int id) {
 					lobbiesAlive_--;
 
 					// Delete the lobby
-					log_->info("Dropped lobby " + std::to_string(current->id));
+					log_->info("Dropped lobby " + std::to_string(current->GetId()));
 					current->Drop();
 					break;
 				}
@@ -200,7 +232,6 @@ void SharedMemory::DropLobby(const int id) {
 
 bool SharedMemory::IsInt(std::string& string) const {	
 	try {
-		// TODO iterate through string and do not rely on error
 		std::stoi(string);
 		return true;
 	}
@@ -219,11 +250,24 @@ Lobby* SharedMemory::GetLobby(const int id) const {
 	// Find lobby in list
 	while (current != nullptr) {
 		// Disconnect lobby from list
-		if (current->id == id) { return current; }
+		if (current->GetId() == id) { return current; }
 
 		current = current->next;
 	}
 	return nullptr;
+}
+
+int SharedMemory::GetLobbyId(std::string& string) const {
+	if (!IsInt(string)) {
+		Lobby* targetLobby = FindLobby(string);
+		if (targetLobby != nullptr) {
+			return targetLobby->GetId();
+		}
+		
+		log_->warn("No such lobby found");
+		return -1;
+	}	
+	return std::stoi(string);
 }
 
 void SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }

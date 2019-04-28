@@ -4,7 +4,8 @@
 
 /**
 	Lobby.h
-	Purpose: 
+	Purpose: The lobby is a way of grouping clients to each other. 
+	This enables the server to have multiple clients running in different sections without interrupting each other
 
 	@author Hampus Hallkvist
 	@version 0.5 10/04/2019
@@ -21,7 +22,7 @@ public:
 		Add a client which the
 		lobby will remove next iteration
 
-		@parma id Id of client
+		@parma id_ Id of client
 		@return void
 	 */
 	void AddDrop(int id);
@@ -48,7 +49,7 @@ private:
 
 class Lobby {
 public:
-	Lobby(int id, int max_connections, SharedMemory* shared_memory);
+	Lobby(int id, std::string& name_tag, int max_connections, SharedMemory* shared_memory);
 	~Lobby();
 	/**
 		Cleanup lobby and delete drop all
@@ -175,9 +176,9 @@ public:
 	// Getters
 	//State GetState() const { return lobbyState_; };
 	std::vector<std::string> GetClientCommands() const { return commandQueue_; };
-
-	// Setters
-	
+	int GetConnectedClients() const { return connectedClients_; };
+	int GetId() const { return id_; };
+	std::string GetNameTag() const { return nameTag_; };
 
 private:
 	bool running_;
@@ -214,11 +215,14 @@ private:
 	SharedMemory* sharedMemory_ = nullptr;
 	SharedLobbyMemory* sharedLobbyMemory_ = nullptr;
 
+	// The id of the lobby
+	const int id_;
+	// The name of the lobby
+	const std::string nameTag_;
+
 public:
 	// Lobby specific parameters
-
-	// The id of the lobby
-	int id;
+	
 	// Points to next lobby
 	Lobby* next = nullptr;
 	// Points to previous lobby

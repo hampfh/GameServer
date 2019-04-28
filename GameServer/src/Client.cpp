@@ -25,7 +25,7 @@ socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 Client::~Client() {
 	isOnline_ = false;
-	log_->info("I was dropped");
+	log_->info("Dropped");
 	spdlog::drop("Client#" + std::to_string(socket_));
 }
 
@@ -155,8 +155,19 @@ void Client::CoreCallListener() {
 				// Interpret command
 
 				// Send start command to client
-				if (command == Command::start && lobbyId != 1) { pendingSend_.append("S"); }
-				else if (command == Command::kick) { isOnline_ = false; }
+				switch (command) {
+					case Command::start:
+						pendingSend_.append("S");
+						break;
+					case Command::pause:
+						pendingSend_.append("P");
+						break;
+					case Command::kick:
+						isOnline_ = false;
+						break;
+					default:
+						break;
+				}
 			}
 		}
 
@@ -196,7 +207,10 @@ void Client::RequestDrop() const {
 	lobbyMemory_->AddDrop(this->id);
 }
 
-void Client::End() { isOnline_ = false; }
+void Client::End() {
+	isOnline_ = false;
+	attached_ = false;
+}
 
 void Client::DropLobbyConnections() {
 

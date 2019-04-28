@@ -8,6 +8,7 @@ Core::Core() {
 	maxConnections_ = 0;
 	seed_ = 0;
 	listening_ = socket(NULL, NULL, NULL);
+	port_ = 10000;
 
 	// Initialization
 	sharedMemory_ = new SharedMemory;
@@ -53,12 +54,12 @@ void Core::SetupConfig() {
 			std::string& selector = setting.first;
 			std::string& value = setting.second;
 
-      if (selector == "server_port") {
+			if (selector == "server_port") {
 				port_ = std::stoi(value);
 			}
 			else if (selector == "clock_speed") {
 				sharedMemory_->SetClockSpeed(std::stoi(value));
-      }
+			}
 			else if(selector == "socket_processing_max") {
 				timeInterval_.tv_usec = std::stoi(value) * 1000;
 			}
@@ -76,7 +77,8 @@ void Core::SetupConfig() {
 			}
 			else if (selector == "max_connections") {
 				maxConnections_ = std::stoi(value);
-			} else if (selector == "lobby_start_id_at") {
+			} 
+			else if (selector == "lobby_start_id_at") {
 				sharedMemory_->SetLobbyStartId(std::stoi(value));
 			}
 		}
@@ -102,7 +104,7 @@ void Core::SetupConfig() {
 		file.put("lobby_max_connections", 5);
 		file.put("lobby_start_id_at", 1);
 		file.put(scl::comment(" Client settings"));;
-		file.put("start_id_at", 0);
+		file.put("start_id_at", 1);
 
 		// Create file
 		file.write_changes();
@@ -210,11 +212,8 @@ void Core::InitializeReceiving(const int select_result) {
 
 			sharedMemory_->AddSocket(newClient);
 
-			// Add newClient to socketContentList
-			clientIndex_++;
-
 			// Create and connect it to main lobby
-			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->id);
+			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
 
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
@@ -240,6 +239,9 @@ void Core::InitializeReceiving(const int select_result) {
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
 			clientThread.detach();
+
+			// Increase client index
+			clientIndex_++;
 			break;
 		}
 	}
@@ -278,8 +280,6 @@ void Core::Interpreter() {
 			command = matcher.suffix().str();
 		}
 
-		bool success = false;
-
 		if (!part.empty()) {
 			if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 				// The first selector is lobby and the second is for client
@@ -294,34 +294,67 @@ void Core::Interpreter() {
 				
 			} else if (part[0] == "/Lobby") {
 				if (part.size() >= 2 && part[1] == "create") {
-					Lobby* newLobby = sharedMemory_->AddLobby();
-					log_->info("Lobby created with id: " + std::to_string(newLobby->id));
+					Lobby* newLobby = nullptr;
+					if (part.size() >= 3) {
+						if (sharedMemory_->FindLobby(part[2]) == nullptr) {
+							newLobby = sharedMemory_->AddLobby(part[2]);
+						} else {
+							log_->warn("There is already a lobby with that name");
+							continue;
+						}
+					} else {
+						newLobby = sharedMemory_->AddLobby();
+					}
+					log_->info("Lobby created with id: " + std::to_string(newLobby->GetId()));
 				}
-				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "start") {
-					BroadcastCoreCall(std::stoi(part[1]), 0, Command::start);
+				else if (part.size() >= 2 && part[1] == "list") {
+					// Compose lobby data
+					Lobby* current = sharedMemory_->GetFirstLobby();
+					std::string result = "\n===== Running lobbies =====\n";
+					while (current != nullptr) {
+						result.append("Lobby#" + std::to_string(current->GetId()) + 
+							(!current->GetNameTag().empty() ? " [" + current->GetNameTag() + "]" : "") + 
+							" (" + std::to_string(current->GetConnectedClients()) + " clients)" +
+							"\n");
+						current = current->next;
+					}
+					result.append("===== ####### ####### =====");
+
+					// Print data
+					log_->info(result);
+				}
+				else if (part.size() >= 3 && part[2] == "start") {
+					int id = sharedMemory_->GetLobbyId(part[1]);
+					BroadcastCoreCall(id, 0, Command::start);
 					log_->info("Lobby started!");
 				}
-				else if (part.size() >= 3 && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
-
+				else if (part.size() >= 3 && part[2] == "pause") {
+					int id = sharedMemory_->GetLobbyId(part[1]);
+					BroadcastCoreCall(id, 0, Command::pause);
+					log_->info("Lobby paused!");
+				}
+				else if (part.size() >= 3 && part[2] == "drop") {
+					int id = sharedMemory_->GetLobbyId(part[1]);
 					// Can't drop main lobby
-					if (std::stoi(part[1]) != sharedMemory_->GetMainLobby()->id) {
+					if (id != sharedMemory_->GetMainLobby()->GetId()) {
 						Lobby* current = sharedMemory_->GetFirstLobby();
-						// Search for the lobby with the assigned id
+						// Search for the lobby with the assigned id_
 						while (current != nullptr) {
-							if (current->id == std::stoi(part[1])) {
-								sharedMemory_->DropLobby(std::stoi(part[1]));
+							if (current->GetId() == id) {
+								sharedMemory_->DropLobby(id);
 								break;
 							}
 							current = current->next;
 						}
-					} else {
-						log_->warn("Can't drop main lobby");
+						continue;
 					}
-					continue;
+					log_->warn("Can't drop main lobby");
 				}
 				// Second argument is lobby, third is client
-				else if (part.size() >= 4 && sharedMemory_->IsInt(part[1]) && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
-					const int newLobbyId = std::stoi(part[1]);
+				else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
+					int id = sharedMemory_->GetLobbyId(part[1]);
+
+					const int newLobbyId = id;
 					const int clientId = std::stoi(part[3]);
 
 					// Find the current lobby and client

@@ -53,13 +53,30 @@ public:
 	 */
 	Client* FindClient(int client_id, Lobby** lobby) const;
 	/**
+		Iterate through the memory to find the specified lobby
+
+		@param lobby_id Id of the lobby to find
+		the lobby where the client was found
+		@return Lobby* if client is found, otherwise nullptr
+	 */
+	Lobby* FindLobby(int lobby_id) const;
+	/**
+		Iterate through the memory to find the specified lobby
+
+		@param name_tag The name tag of the lobby
+		the lobby where the client was found
+		@return Lobby* if client is found, otherwise nullptr
+	 */
+	Lobby* FindLobby(std::string& name_tag) const;
+	/**
 		Creates a new separate section
 		of the server, segregated from
 		all other activities
 
+		@param name The name of the lobby
 		@return Lobby*
 	*/
-	Lobby* AddLobby();
+	Lobby* AddLobby(std::string name = "");
 	/**
 		Create a main lobby which all
 		user will be connected to
@@ -113,6 +130,7 @@ public:
 	float GetTimeoutDelay() const { return timeoutDelay_; };
 	int GetClockSpeed() const { return clockSpeed_; };
 	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; };
+	int GetLobbyId(std::string& string) const;
 
 	// Setters
 
