@@ -103,7 +103,7 @@ void Core::SetupConfig() {
 		file.put("lobby_max_connections", 5);
 		file.put("lobby_start_id_at", 1);
 		file.put(scl::comment(" Client settings"));;
-		file.put("start_id_at", 0);
+		file.put("start_id_at", 1);
 
 		// Create file
 		file.write_changes();
@@ -211,11 +211,11 @@ void Core::InitializeReceiving(const int select_result) {
 
 			sharedMemory_->AddSocket(newClient);
 
-			// Add newClient to socketContentList
-			clientIndex_++;
-
 			// Create and connect it to main lobby
 			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
+
+			// Add newClient to socketContentList
+			clientIndex_++;
 
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);

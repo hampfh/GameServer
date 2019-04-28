@@ -9,6 +9,7 @@
 #include <string>
 #include <mutex>
 #include <random>
+#include <filesystem>
 
 // Logging library
 #include "spdlog/spdlog.h"

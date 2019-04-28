@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SharedMemory.h"
+#include <experimental/filesystem>
 
 SharedMemory::SharedMemory() {
 
@@ -25,12 +26,18 @@ SharedMemory::~SharedMemory() {
 }
 
 void SharedMemory::SetupLogging() {
-	// Global spdlog settings
-	spdlog::flush_every(std::chrono::seconds(10));
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	const std::string logFilePath = "logs/";
 
+	// If log directory does not exists it is created
+	std::experimental::filesystem::create_directory(logFilePath);
+
+	// Global spdlog settings
+	spdlog::flush_every(std::chrono::seconds(4));
+	spdlog::flush_on(spdlog::level::warn);
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	
 	// Create global sharedFileSink
-	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>("logs/log.log", 1048576 * 5, 3);
+	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
 
 	// Setup memory logger
 	std::vector<spdlog::sink_ptr> sinks;
