@@ -225,7 +225,6 @@ void SharedMemory::DropLobby(const int id) {
 
 bool SharedMemory::IsInt(std::string& string) const {	
 	try {
-		// TODO iterate through string and do not rely on error
 		std::stoi(string);
 		return true;
 	}

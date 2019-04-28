@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "Core.h"
-#include "SharedMemory.h"
 
 /**
     main.cpp
@@ -10,13 +9,13 @@
     @version 0.5 08/04/2019
 */
 
-int main() {
+int main(int argc, char* argv[]) {
 
 	Core core;
 
 	// Create a console reading thread
-	std::thread t(&Core::Interpreter, &core);
-	t.detach();
+	std::thread commandThread(&Core::Interpreter, &core);
+	commandThread.detach();
 	
 	// Start server
 	core.Execute();
