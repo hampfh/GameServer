@@ -8,6 +8,7 @@ Core::Core() {
 	maxConnections_ = 0;
 	seed_ = 0;
 	listening_ = socket(NULL, NULL, NULL);
+	port_ = 10000;
 
 	// Initialization
 	sharedMemory_ = new SharedMemory;
@@ -214,9 +215,6 @@ void Core::InitializeReceiving(const int select_result) {
 			// Create and connect it to main lobby
 			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
 
-			// Add newClient to socketContentList
-			clientIndex_++;
-
 			// Create a setup message
 			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
 
@@ -241,6 +239,9 @@ void Core::InitializeReceiving(const int select_result) {
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
 			clientThread.detach();
+
+			// Increase client index
+			clientIndex_++;
 			break;
 		}
 	}
@@ -251,18 +252,6 @@ void Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
 
 	while (current != nullptr) {
 		current->BroadcastCoreCall(lobby, receiver, command);
-		current = current->next;
-	}
-}
-
-void Core::BroadcastCoreCall(std::string& lobby, int receiver, int command) const {
-	Lobby* current = sharedMemory_->GetFirstLobby();
-
-	Lobby* targetLobby = sharedMemory_->FindLobby(lobby);
-	int lobbyId = targetLobby->GetId();
-
-	while (current != nullptr) {
-		current->BroadcastCoreCall(lobbyId, receiver, command);
 		current = current->next;
 	}
 }

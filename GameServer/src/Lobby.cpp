@@ -88,8 +88,9 @@ void Lobby::Execute() {
 
 void Lobby::Loop() {
 
+	DropAwaiting();
+
 	if (connectedClients_ > 0) {
-		DropAwaiting();
 
 		// Receiving state
 		if (internalState_ == State::receiving) {
@@ -317,10 +318,10 @@ int Lobby::AddClient(Client* client, const bool respect_limit) {
 		lastClient_ = client;
 	}
 	else {
-		Client* current = lastClient_;
-		lastClient_->next = client;
-		lastClient_ = lastClient_->next;
-		lastClient_->prev = current;
+		Client* prevLast = lastClient_;
+		prevLast->next = client;
+		lastClient_ = client;
+		client->prev = prevLast;
 	}
 	log_->info("Client added");
 	return 0;
