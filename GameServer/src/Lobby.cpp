@@ -52,6 +52,23 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 	spdlog::register_logger(log_);
 
 	log_->info("Successfully created");
+
+	// Generate a session log
+	const std::string sessionLogPath = "sessions/";
+	// If log directory does not exists it is created
+	std::experimental::filesystem::create_directory(sessionLogPath);
+
+	std::random_device rd;
+	default_random_engine rand(rd());
+
+	const std::string sessionIdentification = (!name_tag.empty() ? name_tag : std::to_string(id));
+	sessionFile_ = '#' + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
+
+	sessionLog_ = spdlog::basic_logger_mt(
+		"SessionLog#" + sessionIdentification,
+		"sessions/" + sessionFile_
+	);
+	sessionLog_->set_pattern("[%a %b %d %H:%M:%S %Y] %^ %v%$");
 }
 
 
@@ -72,14 +89,28 @@ void Lobby::CleanUp() {
 	}
 	DropAwaiting();
 
+	std::ifstream file;
+	file.open("sessions/" + sessionFile_);
+
+	// Delete log file if empty
+	const bool result = (file.peek() == std::ifstream::traits_type::eof());
+	file.close();
+
+	if (result) {
+		//std::experimental::filesystem::remove("sessions/" + sessionFile_);
+		log_->info("Deleted file, no content");
+	}
+
 	// Delete log
 	spdlog::drop("Lobby#" + std::to_string(id_));
+	spdlog::drop("SessionLog#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));
 }
 
 void Lobby::Execute() {
 
 	while (running_) {
 		Loop();
+		std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 	}
 	CleanUp();
 
@@ -114,7 +145,6 @@ void Lobby::Loop() {
 		internalState_ = State::receiving;
 		break;
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
 
 void Lobby::InitializeSending() const {
@@ -181,6 +211,8 @@ void Lobby::InitializeReceiving() {
 				std::string clientCommand = current->GetCommand();
 				if (!clientCommand.empty()) {
 					commandQueue_.push_back(current->GetCommand());
+
+					sessionLog_->info("Client#" + std::to_string(current->id) + " " + clientCommand);
 				}
 				readyClients++;
 			}
@@ -199,7 +231,7 @@ void Lobby::InitializeReceiving() {
 	ResendReceive(connectedClients_ - readyClients);
 
 	sharedLobbyMemory_->SetState(none);
-	
+	sessionLog_->flush();
 }
 
 void Lobby::ResendReceive(const int interrupted_connections) {
