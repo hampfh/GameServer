@@ -197,6 +197,8 @@ private:
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;
+	// A session log logs all data the clients send between each other
+	std::shared_ptr<spdlog::logger> sessionLog_;
 
 	// Mutex objects used to for thread safety 
 
@@ -219,6 +221,11 @@ private:
 	const int id_;
 	// The name of the lobby
 	const std::string nameTag_;
+
+	// Generate a session log
+	std::string sessionFile_;
+
+	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sessionFileSink_;
 
 public:
 	// Lobby specific parameters
