@@ -72,6 +72,9 @@ void Core::SetupConfig() {
 			else if (selector == "lobby_max_connections") {
 				sharedMemory_->SetLobbyMax(std::stoi(value));
 			}
+			else if (selector == "session_logging") {
+				sharedMemory_->SetSessionLogging(value == "on");
+			}
 			else if (selector == "start_id_at") {
 				clientIndex_ = std::stoi(value);
 			}
@@ -103,6 +106,7 @@ void Core::SetupConfig() {
     file.put(scl::comment(" Lobby settings"));
 		file.put("lobby_max_connections", 5);
 		file.put("lobby_start_id_at", 1);
+		file.put("session_logging", "off");
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
 

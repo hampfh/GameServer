@@ -53,22 +53,26 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 
 	log_->info("Successfully created");
 
-	// Generate a session log
-	const std::string sessionLogPath = "sessions/";
-	// If log directory does not exists it is created
-	std::experimental::filesystem::create_directory(sessionLogPath);
+	if (sharedMemory_->GetSessionLogging()) {
+		// Generate a session log
+		const std::string sessionLogPath = "sessions/";
+		// If log directory does not exists it is created
+		std::experimental::filesystem::create_directory(sessionLogPath);
 
-	std::random_device rd;
-	default_random_engine rand(rd());
+		std::random_device rd;
+		default_random_engine rand(rd());
 
-	const std::string sessionIdentification = (!name_tag.empty() ? name_tag : std::to_string(id));
-	sessionFile_ = '#' + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
+		const std::string sessionIdentification = (!name_tag.empty() ? name_tag : std::to_string(id));
+		sessionFile_ = '#' + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
 
-	sessionLog_ = spdlog::basic_logger_mt(
-		"SessionLog#" + sessionIdentification,
-		"sessions/" + sessionFile_
-	);
-	sessionLog_->set_pattern("[%a %b %d %H:%M:%S %Y] %^ %v%$");
+		sessionLog_ = spdlog::basic_logger_mt(
+			"SessionLog#" + sessionIdentification,
+			"sessions/" + sessionFile_
+		);
+		sessionLog_->set_pattern("[%a %b %d %H:%M:%S %Y] %^ %v%$");
+	} else {
+		sessionLog_ = nullptr;
+	}
 }
 
 
@@ -212,7 +216,10 @@ void Lobby::InitializeReceiving() {
 				if (!clientCommand.empty()) {
 					commandQueue_.push_back(current->GetCommand());
 
-					sessionLog_->info("Client#" + std::to_string(current->id) + " " + clientCommand);
+					// Create log if enabled
+					if (sessionLog_ != nullptr) {
+						sessionLog_->info("Client#" + std::to_string(current->id) + " " + clientCommand);
+					}
 				} else {
 					// Add empty command
 					commandQueue_.push_back("{" + std::to_string(current->id) + "}");
