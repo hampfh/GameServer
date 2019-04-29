@@ -213,6 +213,9 @@ void Lobby::InitializeReceiving() {
 					commandQueue_.push_back(current->GetCommand());
 
 					sessionLog_->info("Client#" + std::to_string(current->id) + " " + clientCommand);
+				} else {
+					// Add empty command
+					commandQueue_.push_back("{" + std::to_string(current->id) + "}");
 				}
 				readyClients++;
 			}
