@@ -347,13 +347,22 @@ void Core::Interpreter() {
 				}
 				else if (part.size() >= 3 && part[2] == "start") {
 					int id = sharedMemory_->GetLobbyId(part[1]);
-					BroadcastCoreCall(id, 0, Command::start);
-					log_->info("Lobby started!");
+					if (id != sharedMemory_->GetMainLobby()->GetId()) {
+						BroadcastCoreCall(id, 0, Command::start);
+						log_->info("Lobby started!");
+					} else {
+						log_->warn("Main lobby cannot be targeted for start");
+					}
 				}
 				else if (part.size() >= 3 && part[2] == "pause") {
 					int id = sharedMemory_->GetLobbyId(part[1]);
-					BroadcastCoreCall(id, 0, Command::pause);
-					log_->info("Lobby paused!");
+					if (id != sharedMemory_->GetMainLobby()->GetId()) {
+						BroadcastCoreCall(id, 0, Command::pause);
+						log_->info("Lobby paused!");
+					}
+					else {
+						log_->warn("Main lobby cannot be targeted for pause");
+					}
 				}
 				else if (part.size() >= 3 && part[2] == "drop") {
 					int id = sharedMemory_->GetLobbyId(part[1]);
