@@ -63,11 +63,11 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 		default_random_engine rand(rd());
 
 		const std::string sessionIdentification = (!name_tag.empty() ? name_tag : std::to_string(id));
-		sessionFile_ = '#' + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
+		sessionFile_ = "sessions/#" + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
 
 		sessionLog_ = spdlog::basic_logger_mt(
 			"SessionLog#" + sessionIdentification,
-			"sessions/" + sessionFile_
+			sessionFile_
 		);
 		sessionLog_->set_pattern("[%a %b %d %H:%M:%S %Y] %^ %v%$");
 	} else {
@@ -93,17 +93,7 @@ void Lobby::CleanUp() {
 	}
 	DropAwaiting();
 
-	std::ifstream file;
-	file.open("sessions/" + sessionFile_);
-
-	// Delete log file if empty
-	const bool result = (file.peek() == std::ifstream::traits_type::eof());
-	file.close();
-
-	if (result) {
-		//std::experimental::filesystem::remove("sessions/" + sessionFile_);
-		log_->info("Deleted file, no content");
-	}
+	//TODO Drop session file if it is empty
 
 	// Delete log
 	spdlog::drop("Lobby#" + std::to_string(id_));

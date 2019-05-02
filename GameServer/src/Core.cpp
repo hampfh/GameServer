@@ -21,9 +21,13 @@ Core::Core() {
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 
+	log_->info("Version: 0.1");
+
 	SetupConfig();
 
 	SetupWinSock();
+
+	SetupSessionDir();
 
 	// Create main lobby
 	sharedMemory_->CreateMainLobby();
@@ -170,6 +174,20 @@ void Core::SetupWinSock() {
 
 	// Assign
 	sharedMemory_->SetSockets(master);
+}
+
+void Core::SetupSessionDir() const {
+	const std::string path = "sessions/";
+
+	if (std::experimental::filesystem::exists(path)) {
+		log_->info("Deleting previous sessions logs");
+		std::experimental::filesystem::remove_all(path);
+	} else {
+		log_->info("Creating session dir");
+
+		// If log directory does not exists it is created
+		std::experimental::filesystem::create_directory(path);
+	}
 }
 
 void Core::Execute() {
