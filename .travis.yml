@@ -1,4 +1,4 @@
 language: cpp
 compiler: gcc
-install: make get-deps
+os: windows
 script: make
