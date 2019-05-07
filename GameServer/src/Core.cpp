@@ -7,7 +7,6 @@ Core::Core() {
 	clientIndex_ = 0;
 	maxConnections_ = 0;
 	seed_ = 0;
-	listening_ = socket(NULL, NULL, NULL);
 	port_ = 10000;
 
 	// Initialization
@@ -313,16 +312,15 @@ void Core::Interpreter() {
 			
 		} else if (part[0] == "/Lobby") {
 			if (part.size() >= 2 && part[1] == "create") {
-				Lobby* newLobby = nullptr;
 				if (part.size() >= 3) {
 					if (sharedMemory_->FindLobby(part[2]) == nullptr) {
-						newLobby = sharedMemory_->AddLobby(part[2]);
+						sharedMemory_->AddLobby(part[2]);
 					} else {
 						log_->warn("There is already a lobby with that name");
 						continue;
 					}
 				} else {
-					newLobby = sharedMemory_->AddLobby();
+					sharedMemory_->AddLobby();
 				}
 			}
 			else if (part.size() >= 2 && part[1] == "list") {
@@ -342,7 +340,6 @@ void Core::Interpreter() {
 				// Print data
 				log_->info(result);
 			}
-			// TODO add list for specific lobby
 			else if (part.size() >= 3 && part[2] == "list") {
 				int lobbyId = sharedMemory_->GetLobbyId(part[1]);
 

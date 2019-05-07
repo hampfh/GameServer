@@ -134,7 +134,7 @@ public:
 		clients in a specific lobby
 		@return void
 	 */
-	void List();
+	void List() const;
 	/**
 		Iterate through the lobby to try to find if a specific client
 		is withing it

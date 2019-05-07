@@ -112,8 +112,6 @@ void Lobby::CleanUp() {
 	}
 	DropAwaiting();
 
-	//TODO Drop session file if it is empty
-
 	// Delete log
 	spdlog::drop("Lobby#" + std::to_string(id_));
 	spdlog::drop("SessionLog#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));
@@ -394,7 +392,7 @@ void Lobby::WaitForPause() const {
 	}
 }
 
-void Lobby::List() {
+void Lobby::List() const {
 	
 	std::string result = "\n======= Lobby list ========\n";
 	result.append("[" + std::to_string(connectedClients_) + "] connected clients");
