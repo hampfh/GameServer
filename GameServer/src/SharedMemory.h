@@ -130,6 +130,11 @@ public:
 	float GetTimeoutDelay() const { return timeoutDelay_; }
 	int GetClockSpeed() const { return clockSpeed_; }
 	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
+	/**
+		This method will take in a string input and 
+		try to find a lobby with the same name or
+		the entered id
+	 */
 	int GetLobbyId(std::string& string) const;
 	bool GetSessionLogging() const { return sessionLogging_; }
 

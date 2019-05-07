@@ -300,128 +300,139 @@ void Core::Interpreter() {
 			command = matcher.suffix().str();
 		}
 
-		if (!part.empty()) {
-			if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
-				// The first selector is lobby and the second is for client
-				Lobby* clientLobby = nullptr;
-				Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
+		if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
+			// The first selector is lobby and the second is for client
+			Lobby* clientLobby = nullptr;
+			Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
 
-				if (currentClient != nullptr && clientLobby != nullptr) {
-					clientLobby->DropClient(currentClient, false, true);
-				} else {
-					log_->warn("Client or lobby not found");
-				}
-				
-			} else if (part[0] == "/Lobby") {
-				if (part.size() >= 2 && part[1] == "create") {
-					Lobby* newLobby = nullptr;
-					if (part.size() >= 3) {
-						if (sharedMemory_->FindLobby(part[2]) == nullptr) {
-							newLobby = sharedMemory_->AddLobby(part[2]);
-						} else {
-							log_->warn("There is already a lobby with that name");
-							continue;
-						}
+			if (currentClient != nullptr && clientLobby != nullptr) {
+				clientLobby->DropClient(currentClient, false, true);
+			} else {
+				log_->warn("Client or lobby not found");
+			}
+			
+		} else if (part[0] == "/Lobby") {
+			if (part.size() >= 2 && part[1] == "create") {
+				Lobby* newLobby = nullptr;
+				if (part.size() >= 3) {
+					if (sharedMemory_->FindLobby(part[2]) == nullptr) {
+						newLobby = sharedMemory_->AddLobby(part[2]);
 					} else {
-						newLobby = sharedMemory_->AddLobby();
+						log_->warn("There is already a lobby with that name");
+						continue;
 					}
+				} else {
+					newLobby = sharedMemory_->AddLobby();
 				}
-				else if (part.size() >= 2 && part[1] == "list") {
+			}
+			else if (part.size() >= 2 && part[1] == "list") {
 
-					// Compose lobby data
+				// Compose lobby data
+				Lobby* current = sharedMemory_->GetFirstLobby();
+				std::string result = "\n===== Running lobbies =====\n";
+				while (current != nullptr) {
+					result.append("Lobby#" + std::to_string(current->GetId()) + 
+						(!current->GetNameTag().empty() ? " [" + current->GetNameTag() + "]" : "") + 
+						" (" + std::to_string(current->GetConnectedClients()) + " clients)" +
+						"\n");
+					current = current->next;
+				}
+				result.append("===========================");
+
+				// Print data
+				log_->info(result);
+			}
+			// TODO add list for specific lobby
+			else if (part.size() >= 3 && part[2] == "list") {
+				int lobbyId = sharedMemory_->GetLobbyId(part[1]);
+
+				Lobby* current = sharedMemory_->GetFirstLobby();
+				// Search for the lobby with the assigned id_
+				while (current != nullptr) {
+					if (current->GetId() == lobbyId) {
+						current->List();
+						break;
+					}
+					current = current->next;
+				}
+			}
+			else if (part.size() >= 3 && part[2] == "start") {
+				int id = sharedMemory_->GetLobbyId(part[1]);
+				if (id != sharedMemory_->GetMainLobby()->GetId()) {
+					BroadcastCoreCall(id, 0, Command::start);
+					log_->info("Lobby started!");
+				} else {
+					log_->warn("Main lobby cannot be targeted for start");
+				}
+			}
+			else if (part.size() >= 3 && part[2] == "pause") {
+				int id = sharedMemory_->GetLobbyId(part[1]);
+				if (id != sharedMemory_->GetMainLobby()->GetId()) {
+					BroadcastCoreCall(id, 0, Command::pause);
+					log_->info("Lobby paused!");
+				}
+				else {
+					log_->warn("Main lobby cannot be targeted for pause");
+				}
+			}
+			else if (part.size() >= 3 && part[2] == "drop") {
+				int id = sharedMemory_->GetLobbyId(part[1]);
+				// Can't drop main lobby
+				if (id != sharedMemory_->GetMainLobby()->GetId()) {
 					Lobby* current = sharedMemory_->GetFirstLobby();
-					std::string result = "\n===== Running lobbies =====\n";
+					// Search for the lobby with the assigned id_
 					while (current != nullptr) {
-						result.append("Lobby#" + std::to_string(current->GetId()) + 
-							(!current->GetNameTag().empty() ? " [" + current->GetNameTag() + "]" : "") + 
-							" (" + std::to_string(current->GetConnectedClients()) + " clients)" +
-							"\n");
+						if (current->GetId() == id) {
+							sharedMemory_->DropLobby(id);
+							break;
+						}
 						current = current->next;
 					}
-					result.append("===== ####### ####### =====");
-
-					// Print data
-					log_->info(result);
+					continue;
 				}
-				// TODO add list for specific lobby
-				else if (part.size() >= 3 && part[2] == "start") {
-					int id = sharedMemory_->GetLobbyId(part[1]);
-					if (id != sharedMemory_->GetMainLobby()->GetId()) {
-						BroadcastCoreCall(id, 0, Command::start);
-						log_->info("Lobby started!");
-					} else {
-						log_->warn("Main lobby cannot be targeted for start");
-					}
-				}
-				else if (part.size() >= 3 && part[2] == "pause") {
-					int id = sharedMemory_->GetLobbyId(part[1]);
-					if (id != sharedMemory_->GetMainLobby()->GetId()) {
-						BroadcastCoreCall(id, 0, Command::pause);
-						log_->info("Lobby paused!");
-					}
-					else {
-						log_->warn("Main lobby cannot be targeted for pause");
-					}
-				}
-				else if (part.size() >= 3 && part[2] == "drop") {
-					int id = sharedMemory_->GetLobbyId(part[1]);
-					// Can't drop main lobby
-					if (id != sharedMemory_->GetMainLobby()->GetId()) {
-						Lobby* current = sharedMemory_->GetFirstLobby();
-						// Search for the lobby with the assigned id_
-						while (current != nullptr) {
-							if (current->GetId() == id) {
-								sharedMemory_->DropLobby(id);
-								break;
-							}
-							current = current->next;
-						}
-						continue;
-					}
-					log_->warn("Can't drop main lobby");
-				}
-				// Second argument is lobby, third is client
-				else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
-					// Get targeted lobby
-					int targetedLobbyId = sharedMemory_->GetLobbyId(part[1]);
-
-					const int clientId = std::stoi(part[3]);
-
-					// Find the current lobby and client
-					Lobby* currentLobby = nullptr;
-					Lobby* targetLobby = sharedMemory_->GetLobby(targetedLobbyId);
-					Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
-
-					if (currentClient != nullptr) {
-						if (targetLobby != nullptr) {
-							// Remove client from current lobby
-							currentLobby->DropClient(currentClient, true, true);
-							// Add client to the selected lobby
-							if (targetLobby->AddClient(currentClient, true, false) != 0) {
-								// Could not add client
-
-								// Kick client
-								currentClient->End();
-								log_->error("Client was dropped, could not insert client to lobby");
-							}
-
-						} else {
-							log_->warn("Lobby#" + std::to_string(clientId) + " not found");
-						}
-					}
-					else {
-						log_->warn("Client not found");
-						continue;
-					}
-				} else {
-					log_->warn("No specifier");
-				}
+				log_->warn("Can't drop main lobby");
 			}
-			else if (part[0] == "/Stop") {
-				running_ = false;
+			// Second argument is lobby, third is client
+			else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
+				// Get targeted lobby
+				int targetedLobbyId = sharedMemory_->GetLobbyId(part[1]);
+
+				const int clientId = std::stoi(part[3]);
+
+				// Find the current lobby and client
+				Lobby* currentLobby = nullptr;
+				Lobby* targetLobby = sharedMemory_->GetLobby(targetedLobbyId);
+				Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
+
+				if (currentClient != nullptr) {
+					if (targetLobby != nullptr) {
+						// Remove client from current lobby
+						currentLobby->DropClient(currentClient, true, true);
+						// Add client to the selected lobby
+						if (targetLobby->AddClient(currentClient, true, false) != 0) {
+							// Could not add client
+
+							// Kick client
+							currentClient->End();
+							log_->error("Client was dropped, could not insert client to lobby");
+						}
+
+					} else {
+						log_->warn("Lobby#" + std::to_string(clientId) + " not found");
+					}
+				}
+				else {
+					log_->warn("Client not found");
+					continue;
+				}
+			} else {
+				log_->warn("No specifier");
 			}
 		}
-		else log_->warn("No such command");
+		else if (part[0] == "/Stop") {
+			running_ = false;
+		}
+		else log_->warn("Command not recognized");
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }

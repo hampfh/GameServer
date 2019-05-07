@@ -130,6 +130,12 @@ public:
 	void WaitForPause(State perform_on_state) const;
 	void WaitForPause() const;
 	/**
+		This method will list all
+		clients in a specific lobby
+		@return void
+	 */
+	void List();
+	/**
 		Iterate through the lobby to try to find if a specific client
 		is withing it
 

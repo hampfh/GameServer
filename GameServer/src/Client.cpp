@@ -53,18 +53,15 @@ void Client::Loop() {
 		}
 	}
 
-	log_->info("Thread " + std::to_string(id) + " exited the loop");
+	if (attached_) {
+		// Request detachment by lobby
+		RequestDrop();
 
-	// Request detachment by lobby
-	RequestDrop();
-
-	while(attached_) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(250));
+		while (attached_) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(250));
+		}
 	}
 
-#ifdef _DEBUG
-	log_->info("Client detached, deleting self");
-#endif
 	delete this;
 }
 

@@ -70,7 +70,7 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	spdlog::register_logger(log_);
 
-	log_->info("Successfully created width id #" + std::to_string(id) + (!name_tag.empty() && name_tag.length() > 0 ? " and name tag #" + name_tag : ""));
+	log_->info("Successfully created lobby [#" + std::to_string(id) + (!name_tag.empty() && name_tag.length() > 0 ? "] [#" + name_tag : "") + "]");
 
 	if (sharedMemory_->GetSessionLogging()) {
 		// Generate a session log
@@ -394,6 +394,27 @@ void Lobby::WaitForPause() const {
 	}
 }
 
+void Lobby::List() {
+	
+	std::string result = "\n======= Lobby list ========\n";
+	result.append("[" + std::to_string(connectedClients_) + "] connected clients");
+	if (connectedClients_ > 0) {
+		result.append("\n---------------------------");
+	}
+
+	// Composer list of clients
+	Client* current = firstClient_;
+	while (current != nullptr) {
+		result.append("\nClient#" + std::to_string(current->id));
+		current = current->next;
+	}
+	
+	result.append("\n===========================");
+
+	// Print data
+	log_->info(result);
+}
+
 Client* Lobby::FindClient(const int id) const {
 	Client* current = firstClient_;
 
@@ -429,7 +450,6 @@ int Lobby::AddClient(Client* client, const bool respect_limit, const bool extern
 	if (firstClient_ == nullptr) {
 		firstClient_ = client;
 		lastClient_ = client;
-		log_->info("Created first node");
 	}
 	else {
 		Client* prevLast = lastClient_;
@@ -437,13 +457,11 @@ int Lobby::AddClient(Client* client, const bool respect_limit, const bool extern
 		lastClient_ = client;
 		client->prev = prevLast;
 	}
-	log_->info("Client added");
+	log_->info("Added client");
 
 	// Continue lobby loop
 	sharedLobbyMemory_->SetPauseState(0);
-#ifdef _DEBUG
-	log_->info("Pause state was reset");
-#endif
+
 	return 0;
 }
 
