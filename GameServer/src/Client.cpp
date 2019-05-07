@@ -54,6 +54,8 @@ void Client::Loop() {
 	}
 
 	log_->info("Thread " + std::to_string(id) + " exited the loop");
+
+	// Request detachment by lobby
 	RequestDrop();
 
 	while(attached_) {

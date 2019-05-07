@@ -180,13 +180,12 @@ void Core::SetupSessionDir() const {
 	const std::string path = "sessions/";
 
 	if (std::experimental::filesystem::exists(path)) {
-		log_->info("Deleting previous sessions logs");
 		std::experimental::filesystem::remove_all(path);
+		log_->info("Cleared previous sessions logs");
 	} else {
-		log_->info("Creating session dir");
-
 		// If log directory does not exists it is created
 		std::experimental::filesystem::create_directory(path);
+		log_->info("Created session dir");
 	}
 }
 
@@ -209,7 +208,6 @@ void Core::Loop() {
 	// Add new connection to main lobby
 	InitializeReceiving(result);
 	
-
 	// Default sleep time between responses
 	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
@@ -383,23 +381,35 @@ void Core::Interpreter() {
 				}
 				// Second argument is lobby, third is client
 				else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
-					int id = sharedMemory_->GetLobbyId(part[1]);
+					// Get targeted lobby
+					int targetedLobbyId = sharedMemory_->GetLobbyId(part[1]);
 
-					const int newLobbyId = id;
 					const int clientId = std::stoi(part[3]);
 
 					// Find the current lobby and client
 					Lobby* currentLobby = nullptr;
-					Lobby* targetLobby = sharedMemory_->GetLobby(newLobbyId);
+					Lobby* targetLobby = sharedMemory_->GetLobby(targetedLobbyId);
 					Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
 
 					if (currentClient != nullptr) {
 						if (targetLobby != nullptr) {
-							currentLobby->DropClient(clientId, true);
+							// Remove client from current lobby
+							currentLobby->DropClient(currentClient, true, true);
+#ifdef _DEBUG
+							log_->info("Dropped client");
+#endif
+							// Add client to the selected lobby
+							if (targetLobby->AddClient(currentClient, true, false) != 0) {
+								// Could not add client
 
-							// Move client to the selected lobby
-							targetLobby->AddClient(currentClient);
+								// Kick client
+								currentClient->End();
+								log_->error("Client was dropped, could not insert client to lobby");
+							}
 
+#ifdef _DEBUG
+							log_->info("Performed");
+#endif
 						} else {
 							log_->warn("Lobby#" + std::to_string(clientId) + " not found");
 						}
@@ -408,6 +418,8 @@ void Core::Interpreter() {
 						log_->warn("Client not found");
 						continue;
 					}
+				} else {
+					log_->warn("No specifier");
 				}
 			}
 			else if (part[0] == "/Stop") {
