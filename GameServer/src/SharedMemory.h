@@ -6,7 +6,7 @@
     Purpose: This class holds data and information accessible for all threads
 
     @author Hampus Hallkvist
-    @version 0.5 08/04/2019
+    @version 0.2 07/05/2019
 */
 
 // Predefine class

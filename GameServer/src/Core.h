@@ -6,7 +6,7 @@
     Purpose: Main thread. This thread controls all other threads and delegates work 
 
     @author Hampus Hallkvist
-    @version 0.5 08/04/2019
+    @version 0.2 07/05/2019
 */
 
 class Core {

@@ -7,7 +7,7 @@
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 0.5 08/04/2019
+    @version 0.2 07/05/2019
 */
 
 // Predefining classes
