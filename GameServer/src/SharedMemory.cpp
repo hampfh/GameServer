@@ -5,6 +5,7 @@
 SharedMemory::SharedMemory() {
 
 	clockSpeed_ = 0;
+	sessionLogging_ = false;
 
 	// Create a global file sink
 	SetupLogging();
@@ -282,4 +283,6 @@ void SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_sp
 
 void SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };
 
-void SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; };
+void SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; }
+
+void SharedMemory::SetSessionLogging(const bool session_logging) { sessionLogging_ = session_logging; }

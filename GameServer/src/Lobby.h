@@ -36,15 +36,23 @@ public:
 	// Getters
 
 	State GetState() const { return state_; };
+	State GetNextState() const { return nextState_; };
+	State* GetStatePointer() { return &state_; };
 	std::vector<int> GetDropList() const { return dropList_; };
+	int GetPauseState() const { return pauseState_; };
 
 	// Setters
 
 	void SetState(State state);
+	void SetPauseState(int pre_pause);
 private:
 	State state_;
-	std::mutex addDropMtx_;
+	State nextState_;
+	int pauseState_;
 	std::vector<int> dropList_;
+
+	std::mutex addDropMtx_;
+	std::mutex setPauseMtx_;
 };
 
 class Lobby {
@@ -81,7 +89,7 @@ public:
 
 		@return void
 	 */
-	void InitializeSending() const;
+	void InitializeSending();
 	/**
 		Initializes the receiving state, telling
 		client threads start receiving data from
@@ -91,21 +99,18 @@ public:
 	 */
 	void InitializeReceiving();
 	/**
-		This method is called when the lobby
-		has timed out. The method will resend
-		it's latest command to all clients
-		which did not answer
+		Resend data for all clients
+		with a specific state
 
 		@return void
 	 */
-	void ResendReceive(int interrupted_connections);
+	void Resend(State resend_on);
 	/**
-		Clears the vector array
-		from all previous commands
-
+		Drops all clients with a specific state
+		@param non_condition_state Drops all clients which is not this state
 		@return void
 	 */
-	void ResetCommandQueue();
+	void DropNonResponding(State non_condition_state);
 	/**
 		Broadcasts the call from lobby
 		to all clients
@@ -116,6 +121,20 @@ public:
 		@return void
 	 */
 	void BroadcastCoreCall(int& lobby, int& receiver, int& command);
+	/**
+		This method will wait until a certain selector becomes
+		is equal to the condition
+		@param perform_on_state The state where the pause commands will be performed on. Null will perform pause on any state
+		@return void
+	 */
+	void WaitForPause(State perform_on_state) const;
+	void WaitForPause() const;
+	/**
+		This method will list all
+		clients in a specific lobby
+		@return void
+	 */
+	void List();
 	/**
 		Iterate through the lobby to try to find if a specific client
 		is withing it
@@ -131,9 +150,10 @@ public:
 		@param client Connect client object to lobby
 		@param respect_limit Decides if the lobby should accept clients
 		even if the lobby is full
+		@param external Is the method called from outside the class
 		@return int 0 if client was added successfully, 1 if lobby is full
 	*/
-	int AddClient(Client* client, bool respect_limit = true);
+	int AddClient(Client* client, bool respect_limit = true, bool external = false);
 	/**
 		Drops and removes a specific
 		client from the list
@@ -141,10 +161,11 @@ public:
 		@param id If of client to drop
 		@param detach_only Determines if the lobby should only disconnect
 		the client from itself or actually remove it
+		@param external Is the method called from outside the class
 		@return Client* Will return client if detached and nullptr
 		on full delete or if not found
 	*/
-	Client* DropClient(int id, bool detach_only = false);
+	Client* DropClient(int id, bool detach_only = false, bool external = false);
 	/**
 		Drops and removes a specific
 		client from the list
@@ -152,10 +173,11 @@ public:
 		@param client A pointer to the client
 		@param detach_only Determines if the lobby should only disconnect
 		the client from itself or actually remove it
+		@param external Is the method called from outside the class
 		@return Client* Will return client if detached and nullptr
 		on full delete or if not found
 	*/
-	Client* DropClient(Client* client, bool detach_only = false);
+	Client* DropClient(Client* client, bool detach_only = false, bool external = false);
 	/**
 		Drop all clients awaiting
 		drop
@@ -179,7 +201,6 @@ public:
 	int GetConnectedClients() const { return connectedClients_; };
 	int GetId() const { return id_; };
 	std::string GetNameTag() const { return nameTag_; };
-
 private:
 	bool running_;
 
@@ -197,12 +218,15 @@ private:
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;
+	// A session log logs all data the clients send between each other
+	std::shared_ptr<spdlog::logger> sessionLog_;
 
 	// Mutex objects used to for thread safety 
 
 	std::mutex clientStateMtx_;
 	std::mutex addCommandMtx_;
 	std::mutex coreCallMtx_;
+	std::mutex setPauseMtx_;
 
 	// Dynamic allocated array holding all clients responses
 	std::vector<std::string> commandQueue_;
@@ -219,6 +243,11 @@ private:
 	const int id_;
 	// The name of the lobby
 	const std::string nameTag_;
+
+	// Generate a session log
+	std::string sessionFile_;
+
+	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sessionFileSink_;
 
 public:
 	// Lobby specific parameters

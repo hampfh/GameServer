@@ -35,7 +35,14 @@ public:
 		@return void
 	 */
 	void SetupWinSock();
+	/**
+		This method will delete all content of
+		the session dir when starting. If this
+		directory does not exists then it will be created
 
+		@return void
+	 */
+	void SetupSessionDir() const;
 	/**
 		Method is the main loop of the program.
 		It calls the loop method every iteration

@@ -120,17 +120,23 @@ public:
 
 	// Getters
 
-	int GetConnectedClients() const { return connectedClients_; };
-	fd_set* GetSockets() { return &sockets_; };
-	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; };
-	Lobby* GetFirstLobby() const { return firstLobby_; };
+	int GetConnectedClients() const { return connectedClients_; }
+	fd_set* GetSockets() { return &sockets_; }
+	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
+	Lobby* GetFirstLobby() const { return firstLobby_; }
 	Lobby* GetLobby(int id) const;
-	Lobby* GetMainLobby() const { return mainLobby_; };
-	int GetTimeoutTries() const { return timeoutTries_; };
-	float GetTimeoutDelay() const { return timeoutDelay_; };
-	int GetClockSpeed() const { return clockSpeed_; };
-	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; };
+	Lobby* GetMainLobby() const { return mainLobby_; }
+	int GetTimeoutTries() const { return timeoutTries_; }
+	float GetTimeoutDelay() const { return timeoutDelay_; }
+	int GetClockSpeed() const { return clockSpeed_; }
+	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
+	/**
+		This method will take in a string input and 
+		try to find a lobby with the same name or
+		the entered id
+	 */
 	int GetLobbyId(std::string& string) const;
+	bool GetSessionLogging() const { return sessionLogging_; }
 
 	// Setters
 
@@ -142,6 +148,7 @@ public:
 	void SetClockSpeed(int clock_speed);
 	void SetLobbyMax(int lobby_max);
 	void SetLobbyStartId(int start_id);
+	void SetSessionLogging(bool session_logging);
 
 private:
 	// A collection of all sockets
@@ -172,6 +179,8 @@ private:
 
 	// Shared pointer to logger
 	std::shared_ptr<spdlog::logger> log_;
+	// Decides if the server will log client communication
+	bool sessionLogging_;
 
 	// The number of tries before timeout
 	int timeoutTries_ = 0;
