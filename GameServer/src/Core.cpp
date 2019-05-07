@@ -21,7 +21,7 @@ Core::Core() {
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 
-	log_->info("Version: 0.1");
+	log_->info("Version: 0.2");
 
 	SetupConfig();
 
