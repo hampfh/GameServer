@@ -307,7 +307,7 @@ void Core::Interpreter() {
 				Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
 
 				if (currentClient != nullptr && clientLobby != nullptr) {
-					clientLobby->DropClient(currentClient);
+					clientLobby->DropClient(currentClient, false, true);
 				} else {
 					log_->warn("Client or lobby not found");
 				}
@@ -325,9 +325,9 @@ void Core::Interpreter() {
 					} else {
 						newLobby = sharedMemory_->AddLobby();
 					}
-					log_->info("Lobby created with id: " + std::to_string(newLobby->GetId()));
 				}
 				else if (part.size() >= 2 && part[1] == "list") {
+
 					// Compose lobby data
 					Lobby* current = sharedMemory_->GetFirstLobby();
 					std::string result = "\n===== Running lobbies =====\n";
@@ -343,6 +343,7 @@ void Core::Interpreter() {
 					// Print data
 					log_->info(result);
 				}
+				// TODO add list for specific lobby
 				else if (part.size() >= 3 && part[2] == "start") {
 					int id = sharedMemory_->GetLobbyId(part[1]);
 					if (id != sharedMemory_->GetMainLobby()->GetId()) {
@@ -395,9 +396,6 @@ void Core::Interpreter() {
 						if (targetLobby != nullptr) {
 							// Remove client from current lobby
 							currentLobby->DropClient(currentClient, true, true);
-#ifdef _DEBUG
-							log_->info("Dropped client");
-#endif
 							// Add client to the selected lobby
 							if (targetLobby->AddClient(currentClient, true, false) != 0) {
 								// Could not add client
@@ -407,9 +405,6 @@ void Core::Interpreter() {
 								log_->error("Client was dropped, could not insert client to lobby");
 							}
 
-#ifdef _DEBUG
-							log_->info("Performed");
-#endif
 						} else {
 							log_->warn("Lobby#" + std::to_string(clientId) + " not found");
 						}

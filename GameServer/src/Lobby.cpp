@@ -66,11 +66,11 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 	std::vector<spdlog::sink_ptr> sinks;
 	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 	sinks.push_back(shared_memory->GetFileSink());
-	log_ = std::make_shared<spdlog::logger>("Lobby#" + std::to_string(id), begin(sinks), end(sinks));
+	log_ = std::make_shared<spdlog::logger>("Lobby#" + (!name_tag.empty() ? name_tag : std::to_string(id)), begin(sinks), end(sinks));
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	spdlog::register_logger(log_);
 
-	log_->info("Successfully created");
+	log_->info("Successfully created width id #" + std::to_string(id) + (!name_tag.empty() && name_tag.length() > 0 ? " and name tag #" + name_tag : ""));
 
 	if (sharedMemory_->GetSessionLogging()) {
 		// Generate a session log
@@ -211,7 +211,7 @@ void Lobby::InitializeSending() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	log_->info("Resending data for clients (Send)");
+	/*log_->info("Resending data for clients (Send)");
 
 	Resend(State::sending);
 
@@ -234,7 +234,7 @@ void Lobby::InitializeSending() {
 		if (readyClients >= interruptedConnections) {
 			return;
 		}
-	}
+	}*/
 
 	DropNonResponding(State::done_sending);
 
@@ -281,7 +281,7 @@ void Lobby::InitializeReceiving() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	log_->info("Resending data for clients (Receive)");
+	/*log_->info("Resending data for clients (Receive)");
 
 	// Resend data
 	Resend(State::receiving);
@@ -313,10 +313,12 @@ void Lobby::InitializeReceiving() {
 		// Sleep for half a millisecond, convert milliseconds to microseconds
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
-
+	*/
 	DropNonResponding(State::done_receiving);
 
 	sharedLobbyMemory_->SetState(none);
+
+	// Flush the session log 
 	sessionLog_->flush();
 }
 
@@ -493,9 +495,10 @@ Client* Lobby::DropClient(Client* client, const bool detach_only, const bool ext
 	connectedClients_--;
 	log_->info("Dropped client " + std::to_string(client->id));
 
+	// Tell other clients that this client has disconnected
+	commandQueue_.push_back("{" + std::to_string(client->id) + "|D}");
+
 	if (detach_only) {
-		// Tell other clients that this client has disconnected
-		commandQueue_.push_back("{" + std::to_string(client->id) + "|D}");
 
 		client->DropLobbyConnections();
 
