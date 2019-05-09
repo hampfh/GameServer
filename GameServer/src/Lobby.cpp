@@ -209,31 +209,6 @@ void Lobby::InitializeSending() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	/*log_->info("Resending data for clients (Send)");
-
-	Resend(State::sending);
-
-	// Check if clients are ready
-	int interruptedConnections = connectedClients_ - readyClients;
-	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
-		// Iterate through all clients
-		current = firstClient_;
-		while (current != nullptr) {
-
-			// Target clients which have not received anything
-			if (current->GetState() == State::sent) {
-				current->SetState(State::done_sending);
-				interruptedConnections++;
-			}
-
-			current = current->next;
-		}
-
-		if (readyClients >= interruptedConnections) {
-			return;
-		}
-	}*/
-
 	DropNonResponding(State::done_sending);
 
 	sharedLobbyMemory_->SetState(none);
@@ -279,39 +254,6 @@ void Lobby::InitializeReceiving() {
 		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
 	}
 
-	/*log_->info("Resending data for clients (Receive)");
-
-	// Resend data
-	Resend(State::receiving);
-
-	// Ready clients excluding all clients that have already been processed
-	int interruptedConnections = connectedClients_ - readyClients;
-	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
-		// Iterate through all clients
-		Client* current = firstClient_;
-		while (current != nullptr) {
-
-			// Target clients which have not received anything
-			if (current->GetState() == State::received) {
-				current->SetState(State::done_receiving);
-				std::string clientCommand = current->GetCommand();
-				if (!clientCommand.empty()) {
-					commandQueue_.push_back(current->GetCommand());
-				}
-				interruptedConnections++;
-			}
-
-			current = current->next;
-		}
-
-		if (readyClients >= interruptedConnections) {
-			return;
-		}
-
-		// Sleep for half a millisecond, convert milliseconds to microseconds
-		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
-	}
-	*/
 	DropNonResponding(State::done_receiving);
 
 	sharedLobbyMemory_->SetState(none);
