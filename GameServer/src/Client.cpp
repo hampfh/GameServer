@@ -49,7 +49,7 @@ void Client::Loop() {
 				Receive();
 			}
 			// Thread sleep
-			std::this_thread::sleep_for(loopInterval_);
+			std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 		}
 	}
 

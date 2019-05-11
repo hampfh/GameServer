@@ -13,8 +13,11 @@ int main(int argc, char* argv[]) {
 
 	Core core;
 
+	if (!core.ready)
+		return 1;
+
 	// Create a console reading thread
-	std::thread commandThread(&Core::Interpreter, &core);
+	std::thread commandThread(&Core::ConsoleThread, &core);
 	commandThread.detach();
 	
 	// Start server

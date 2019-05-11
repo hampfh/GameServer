@@ -1,5 +1,6 @@
 #pragma once
 #include "SharedMemory.h"
+#include "RconClient.h"
 
 /**
     Core.h
@@ -26,7 +27,7 @@ public:
 
 		@return void
 	 */
-	void SetupConfig();
+	int SetupConfig();
 	/**
 		Setup method for winsock2, creating all 
 		necessary variables and dependencies for
@@ -34,7 +35,14 @@ public:
 
 		@return void
 	 */
-	void SetupWinSock();
+	int SetupWinSock();
+	/**
+		Setup an environment for rcon, opening
+		necessary ports etc
+
+		@return void
+	 */
+	int SetupRcon();
 	/**
 		This method will delete all content of
 		the session dir when starting. If this
@@ -67,7 +75,7 @@ public:
 		@param select_result winsock2 select() response
 		@return void
 	 */
-	void InitializeReceiving(int select_result);
+	void InitializeReceiving(int select_result, int rcon_select_result);
 	/**
 		Broadcasts the call from core
 		to all lobbies
@@ -79,6 +87,15 @@ public:
 	 */
 	void BroadcastCoreCall(int lobby, int receiver, int command) const;
 	/**
+		The consoleInput is ran by another thread
+		to call the interpreter method
+	 */
+	void ConsoleThread();
+	int ServerCommand(std::string* command);
+
+	bool ready;
+private:
+	/**
 		The interpreter is ran by another thread
 		to interpret and execute commands entered 
 		in the server console 
@@ -86,14 +103,29 @@ public:
 
 		@return void
 	 */
-	void Interpreter();
-private:
+	int Interpreter(std::string* callback_string);
 
 	bool running_;
+
+
+	// Rcon variables
+
+	bool rcon_;
+	int rconPort_;
+	std::string rconPassword_;
+	int rconMaxConnections_;
+	int rconConnections_;
+	SOCKET rconListening_;
+	// rcon index
+	int rconIndex_;
+	fd_set rconMaster_;
+	fd_set rconWorkingSet_;
 
 	int port_;
 
 	SOCKET listening_;
+
+	std::mutex callInterpreter_;
 
 	// Id index
 	int clientIndex_;
