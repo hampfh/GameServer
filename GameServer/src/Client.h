@@ -20,7 +20,7 @@ public:
 	~Client();
 
 	/**
-		The loop fo the client thread, this alternates 
+		The loop for the client thread, this alternates 
 		between sending and receiving mode
 		
 		@return void 

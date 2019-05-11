@@ -259,7 +259,9 @@ void Lobby::InitializeReceiving() {
 	sharedLobbyMemory_->SetState(none);
 
 	// Flush the session log 
-	sessionLog_->flush();
+	if (sharedMemory_->GetSessionLogging()) {
+		sessionLog_->flush();
+	}
 }
 
 void Lobby::Resend(const State resend_on) {
@@ -334,7 +336,7 @@ void Lobby::WaitForPause() const {
 	}
 }
 
-void Lobby::List() const {
+std::string Lobby::List() const {
 	
 	std::string result = "\n======= Lobby list ========\n";
 	result.append("[" + std::to_string(connectedClients_) + "] connected clients");
@@ -353,6 +355,7 @@ void Lobby::List() const {
 
 	// Print data
 	log_->info(result);
+	return result;
 }
 
 Client* Lobby::FindClient(const int id) const {
