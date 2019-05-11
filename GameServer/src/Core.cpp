@@ -148,7 +148,6 @@ int Core::SetupConfig() {
 		file.put("lobby.session_logging", "false");
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
-		// TODO add rcon index
 
 		// Create file
 		file.write_changes();
