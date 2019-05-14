@@ -7,7 +7,7 @@
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 0.5 08/04/2019
+    @version 0.2 07/05/2019
 */
 
 // Predefining classes
@@ -20,7 +20,7 @@ public:
 	~Client();
 
 	/**
-		The loop fo the client thread, this alternates 
+		The loop for the client thread, this alternates 
 		between sending and receiving mode
 		
 		@return void 

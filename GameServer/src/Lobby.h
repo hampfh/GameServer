@@ -8,7 +8,7 @@
 	This enables the server to have multiple clients running in different sections without interrupting each other
 
 	@author Hampus Hallkvist
-	@version 0.5 10/04/2019
+	@version 0.2 07/05/2019
 */
 
 // Predefining classes
@@ -140,7 +140,7 @@ public:
 		clients in a specific lobby
 		@return void
 	 */
-	void List();
+	std::string List() const;
 	/**
 		Iterate through the lobby to try to find if a specific client
 		is withing it
