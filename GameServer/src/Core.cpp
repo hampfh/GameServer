@@ -303,9 +303,11 @@ void Core::Interpreter() {
 		if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
 			// The first selector is lobby and the second is for client
 			Lobby* clientLobby = nullptr;
+			// Find the client
 			Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
 
 			if (currentClient != nullptr && clientLobby != nullptr) {
+				// Drop the client
 				clientLobby->DropClient(currentClient, false, true);
 			} else {
 				log_->warn("Client or lobby not found");

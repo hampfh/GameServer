@@ -56,6 +56,12 @@ private:
 };
 
 class Lobby {
+private:
+	/**
+		This method drops all clients connected to the lobby
+		@return int
+	 */
+	int DropAll();
 public:
 	Lobby(int id, std::string& name_tag, int max_connections, SharedMemory* shared_memory);
 	~Lobby();

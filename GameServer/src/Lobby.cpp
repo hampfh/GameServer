@@ -103,6 +103,7 @@ void Lobby::CleanUp() {
 	Client* current = firstClient_;
 	Client* prev = firstClient_;
 	while (current != nullptr) {
+		// Disconnect the socket
 		sharedMemory_->DropSocket(current->GetSocket());
 		log_->info("Dropped client #" + std::to_string(current->id));
 		
@@ -453,7 +454,7 @@ Client* Lobby::DropClient(Client* client, const bool detach_only, const bool ext
 	client->prev = nullptr;
 
 	connectedClients_--;
-	log_->info("Dropped client " + std::to_string(client->id));
+	log_->info("Dropped client #" + std::to_string(client->id));
 
 	// Tell other clients that this client has disconnected
 	commandQueue_.push_back("{" + std::to_string(client->id) + "|D}");
@@ -480,6 +481,21 @@ Client* Lobby::DropClient(Client* client, const bool detach_only, const bool ext
 	sharedLobbyMemory_->SetPauseState(0);
 
 	return nullptr;
+}
+
+int Lobby::DropAll() {
+	Client* current = firstClient_;
+	Client* prev = firstClient_;
+	while (current != nullptr) {
+
+		current = current->next;
+		prev->End();
+		connectedClients_--;
+
+		log_->info("Dropped client #" + std::to_string(current->id));
+		prev = current;
+	}
+	return 0;
 }
 
 void Lobby::DropAwaiting() {
