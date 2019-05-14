@@ -295,7 +295,6 @@ void Core::InitializeReceiving(const int select_result, const int rcon_select_re
 	// Go through all new clients to game
 
 	for (int i = 0; i < select_result; i++) {
-		log_->info("test");
 
 		const SOCKET socket = workingSet_.fd_array[i];
 
