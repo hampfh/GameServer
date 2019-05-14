@@ -1,6 +1,13 @@
 # Multithreaded GameServer
 
-Platform: Windows 10
+## Features
+* Manage client communication 
+* Split client into different lobbies where they're not interupting each other
+* Log all communication in the server console
+* Log client communication
+* Rcon - connect to server with third party software
+
+ **Platform:** Windows 10
 
 GameServer is a bridge application between different clients allowing for any communication wanted. Without any form of gamelogic the server only stores the clients commands and broadcast them to all other connected. Thus making the server highly flexible and possible to use for a vast spectre of different games. The server notify connected clients when something special appears such as a disconnect or connect from a new client. 
 

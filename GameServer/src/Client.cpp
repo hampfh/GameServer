@@ -27,6 +27,7 @@ Client::~Client() {
 	isOnline_ = false;
 	log_->info("Dropped");
 	spdlog::drop("Client#" + std::to_string(socket_));
+	sharedMemory_->DropSocket(socket_);
 }
 
 void Client::Loop() {
@@ -58,6 +59,7 @@ void Client::Loop() {
 		RequestDrop();
 
 		while (attached_) {
+			log_->info("Attached");
 			std::this_thread::sleep_for(std::chrono::milliseconds(250));
 		}
 	}
@@ -198,9 +200,6 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 }
 
 void Client::RequestDrop() const {
-
-	// Drop client globally
-	sharedMemory_->DropSocket(socket_);
 
 	// Add self to dropList in lobby
 	lobbyMemory_->AddDrop(this->id);

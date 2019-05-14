@@ -399,7 +399,6 @@ int Core::ServerCommand(std::string* command) {
 
 int Core::Interpreter(std::string* callback_string) {
 
-
 	std::vector<std::string> part;
 	std::string command = *callback_string;
 	
