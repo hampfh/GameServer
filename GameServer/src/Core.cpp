@@ -27,7 +27,7 @@ Core::Core() {
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 
-	log_->info("Version: 0.2");
+	log_->info("Version: 0.3");
 
 	if (SetupConfig() != 0) {
 		ready = false;
@@ -130,7 +130,6 @@ int Core::SetupConfig() {
 		
 		// Generating settings
 		file.put(scl::comment(" Server settings"));
-		file.put(scl::comment(" (All settings associated with time are defined in milliseconds)"));
 		file.put("server_port", 15000);
 		file.put("clock_speed", 50);
 		file.put("socket_processing_max", 1);
