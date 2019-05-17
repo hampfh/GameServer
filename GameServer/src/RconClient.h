@@ -10,50 +10,54 @@
 	@version 0.3 10/05/2019
 */
 
-class Core;
+namespace hgs {
 
-class RconClient {
-	SOCKET socket_;
-	int id_;
-	bool isOnline_;
-	bool confirmed_;
+	class Core;
 
-	Core* core_;
-	std::string outgoing_;
-	std::string password_;
+	class RconClient {
+		SOCKET socket_;
+		int id_;
+		bool isOnline_;
+		// Has the rcon connection been approved
+		bool confirmed_;
 
-	fd_set* socketList_;
+		Core* core_;
+		std::string outgoing_;
+		std::string password_;
 
-	// Shared pointer to logger
-	std::shared_ptr<spdlog::logger> log_;
-public:
-	RconClient(SOCKET socket, int id, Core* core, std::string& password, fd_set* socket_list, std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink);
-	~RconClient();
-	
-	/**
-		The loop for the client rcon client
+		fd_set* socketList_;
 
-		@return void
-	 */
-	void Loop();
-	/**
-		Method responsible for receiving command
-		and then pass to the interpreter
+		// Shared pointer to logger
+		std::shared_ptr<spdlog::logger> log_;
+	public:
+		RconClient(SOCKET socket, int id, gsl::not_null<Core*> core, std::string& password, fd_set* socket_list, std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink);
+		~RconClient();
 
-		@return void
-	 */
-	void Receive();
-	/**
-		Echo interpreter response to client
+		/**
+			The loop for the client rcon client
 
-		@return void
-	 */
-	void Send() const;
+			@return void
+		 */
+		void Loop();
+		/**
+			Method responsible for receiving command
+			and then pass to the interpreter
 
-	/**
-		Drops the socket and detaches 
-		from the socket list
-	 */
-	void Drop();
-};
+			@return void
+		 */
+		void Receive();
+		/**
+			Echo interpreter response to client
 
+			@return void
+		 */
+		void Send() const;
+
+		/**
+			Drops the socket and detaches
+			from the socket list
+		 */
+		void Drop();
+	};
+
+}

@@ -1,13 +1,13 @@
 #include "pch.h"
 #include "Lobby.h"
 
-SharedLobbyMemory::SharedLobbyMemory() {
+hgs::SharedLobbyMemory::SharedLobbyMemory() {
 	state_ = none;
 	pauseState_ = 0;
 	nextState_ = none;
 }
 
-void SharedLobbyMemory::AddDrop(const int id) {
+void hgs::SharedLobbyMemory::AddDrop(const int id) {
 	while(true) {
 		if (addDropMtx_.try_lock()) {
 			dropList_.push_back(id);
@@ -18,7 +18,7 @@ void SharedLobbyMemory::AddDrop(const int id) {
 	}
 }
 
-void SharedLobbyMemory::ClearDropList() {
+void hgs::SharedLobbyMemory::ClearDropList() {
 	while (true) {
 		if (addDropMtx_.try_lock()) {
 			dropList_.clear();
@@ -29,7 +29,7 @@ void SharedLobbyMemory::ClearDropList() {
 	}
 }
 
-void SharedLobbyMemory::SetState(const State state) {
+void hgs::SharedLobbyMemory::SetState(const State state) {
 	switch (state) {
 	case State::receiving:
 		nextState_ = State::sending;
@@ -42,7 +42,7 @@ void SharedLobbyMemory::SetState(const State state) {
 	state_ = state;
 }
 
-void SharedLobbyMemory::SetPauseState(const int pre_pause) {
+void hgs::SharedLobbyMemory::SetPauseState(const int pre_pause) {
 	while (true) {
 		if (setPauseMtx_.try_lock()) {
 			pauseState_ = pre_pause;
@@ -52,7 +52,7 @@ void SharedLobbyMemory::SetPauseState(const int pre_pause) {
 	}
 }
 
-Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, SharedMemory* shared_memory) : maxConnections_(max_connections), sharedMemory_(shared_memory), id_(id), nameTag_(name_tag) {
+hgs::Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, gsl::not_null <SharedMemory*> shared_memory) : maxConnections_(max_connections), sharedMemory_(shared_memory), id_(id), nameTag_(name_tag) {
 	//lobbyState_ = none;
 	internalState_ = none;
 	coreCallPerformedCount_ = 0;
@@ -95,10 +95,10 @@ Lobby::Lobby(const int id, std::string& name_tag, const int max_connections, Sha
 }
 
 
-Lobby::~Lobby() {
+hgs::Lobby::~Lobby() {
 }
 
-void Lobby::CleanUp() {
+void hgs::Lobby::CleanUp() {
 	// Delete all client
 	Client* current = firstClient_;
 	Client* prev = firstClient_;
@@ -118,7 +118,7 @@ void Lobby::CleanUp() {
 	spdlog::drop("SessionLog#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));
 }
 
-void Lobby::Execute() {
+void hgs::Lobby::Execute() {
 
 	while (running_) {
 
@@ -141,7 +141,7 @@ void Lobby::Execute() {
 	delete this;
 }
 
-void Lobby::Loop() {
+void hgs::Lobby::Loop() {
 
 	DropAwaiting();
 
@@ -171,7 +171,7 @@ void Lobby::Loop() {
 	}
 }
 
-void Lobby::InitializeSending() {
+void hgs::Lobby::InitializeSending() {
 
 	// Iterate through all clients
 	Client* current = firstClient_;
@@ -215,7 +215,7 @@ void Lobby::InitializeSending() {
 	sharedLobbyMemory_->SetState(none);
 }
 
-void Lobby::InitializeReceiving() {
+void hgs::Lobby::InitializeReceiving() {
 	// Tell clients to start receiving
 	sharedLobbyMemory_->SetState(receiving);
 
@@ -265,15 +265,16 @@ void Lobby::InitializeReceiving() {
 	}
 }
 
-void Lobby::Resend(const State resend_on) {
+void hgs::Lobby::Resend(const State resend_on) {
 	// Iterate through all clients
 	Client* current = firstClient_;
 	while (current != nullptr) {
 
 		// Target clients which have not received anything
 		if (current->GetState() == resend_on) {
+			std::vector<int> argument = { 0, lastCoreCall_[0], lastCoreCall_[1] , lastCoreCall_[2] };
 			// Assign the latest core call to the client
-			current->SetCoreCall({ 0, lastCoreCall_[0], lastCoreCall_[1] , lastCoreCall_[2] });
+			current->SetCoreCall(argument);
 			current->SetOutgoing(commandQueue_);
 			current->CoreCallListener();
 			current->Send();
@@ -283,7 +284,7 @@ void Lobby::Resend(const State resend_on) {
 	}
 }
 
-void Lobby::DropNonResponding(const State non_condition_state) {
+void hgs::Lobby::DropNonResponding(const State non_condition_state) {
 	// Kick non responding clients (all clients which are not ready at this point)
 	Client* current = (firstClient_ == nullptr ? nullptr : firstClient_);
 
@@ -302,7 +303,7 @@ void Lobby::DropNonResponding(const State non_condition_state) {
 	}
 }
 
-void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) {
+void hgs::Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) {
 	Client* current = firstClient_;
 
 	// Update last core call
@@ -311,12 +312,13 @@ void Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) {
 	lastCoreCall_[2] = command;
 
 	while (current != nullptr) {
-		current->SetCoreCall({0, lobby, receiver, command});
+		std::vector<int> argument = {  };
+		current->SetCoreCall(argument);
 		current = current->next;
 	}
 }
 
-void Lobby::WaitForPause(const State perform_on_state) const {
+void hgs::Lobby::WaitForPause(const State perform_on_state) const {
 	while (true) {
 		// Wait until lobby has the correct state to continue
 		if (sharedLobbyMemory_->GetNextState() == perform_on_state) { // TODO THIS FREEZES THE PROGRAM
@@ -327,7 +329,7 @@ void Lobby::WaitForPause(const State perform_on_state) const {
 	}
 }
 
-void Lobby::WaitForPause() const {
+void hgs::Lobby::WaitForPause() const {
 	// Send pause request to lobby loop
 	sharedLobbyMemory_->SetPauseState(1);
 
@@ -337,7 +339,7 @@ void Lobby::WaitForPause() const {
 	}
 }
 
-std::string Lobby::List() const {
+std::string hgs::Lobby::List() const {
 	
 	std::string result = "\n======= Lobby list ========\n";
 	result.append("[" + std::to_string(connectedClients_) + "] connected clients");
@@ -359,7 +361,7 @@ std::string Lobby::List() const {
 	return result;
 }
 
-Client* Lobby::FindClient(const int id) const {
+hgs::Client* hgs::Lobby::FindClient(const int id) const {
 	Client* current = firstClient_;
 
 	while(current != nullptr) {
@@ -371,7 +373,7 @@ Client* Lobby::FindClient(const int id) const {
 	return nullptr;
 }
 
-int Lobby::AddClient(Client* client, const bool respect_limit, const bool external) {
+int hgs::Lobby::AddClient(Client* client, const bool respect_limit, const bool external) {
 
 	// Make sure max limit for lobby has not been reached
 	if (connectedClients_ >= maxConnections_ && maxConnections_ != 0 && respect_limit) {
@@ -409,7 +411,7 @@ int Lobby::AddClient(Client* client, const bool respect_limit, const bool extern
 	return 0;
 }
 
-Client* Lobby::DropClient(const int id, const bool detach_only, const bool external) {
+hgs::Client* hgs::Lobby::DropClient(const int id, const bool detach_only, const bool external) {
 	Client* current = firstClient_;
 	// Search for client
 	while (current != nullptr) {
@@ -423,7 +425,7 @@ Client* Lobby::DropClient(const int id, const bool detach_only, const bool exter
 	return nullptr;
 }
 
-Client* Lobby::DropClient(Client* client, const bool detach_only, const bool external) {
+hgs::Client* hgs::Lobby::DropClient(Client* client, const bool detach_only, const bool external) {
 
 	if (client == nullptr) return nullptr;
 
@@ -466,8 +468,9 @@ Client* Lobby::DropClient(Client* client, const bool detach_only, const bool ext
 
 		client->SetPrevState(none);
 		client->SetState(none);
+		std::vector<std::string> outgoing = { "{*|D}" };
 		// Tell client to drop all already existing externals
-		client->SetOutgoing({ "{*|D}" });
+		client->SetOutgoing(outgoing);
 		client->Send();
 
 		// Continue lobby loop
@@ -484,7 +487,7 @@ Client* Lobby::DropClient(Client* client, const bool detach_only, const bool ext
 	return nullptr;
 }
 
-int Lobby::DropAll() {
+int hgs::Lobby::DropAll() {
 	Client* current = firstClient_;
 	Client* prev = firstClient_;
 	while (current != nullptr) {
@@ -499,7 +502,7 @@ int Lobby::DropAll() {
 	return 0;
 }
 
-void Lobby::DropAwaiting() {
+void hgs::Lobby::DropAwaiting() {
 	for (auto clientId : sharedLobbyMemory_->GetDropList()) {
 		
 		DropClient(clientId);
@@ -507,6 +510,6 @@ void Lobby::DropAwaiting() {
 	sharedLobbyMemory_->ClearDropList();
 }
 
-void Lobby::Drop() {
+void hgs::Lobby::Drop() {
 	running_ = false;
 }

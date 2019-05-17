@@ -9,188 +9,192 @@
     @version 0.2 07/05/2019
 */
 
-// Predefine class
-class Lobby;
-class Client;
+namespace hgs {
 
-class SharedMemory {
-public:
-	SharedMemory();
-	~SharedMemory();
-	/**
-		Setup method for logging in the core class
-		and global logging values
+	// Predefine class
+	class Lobby;
+	class Client;
 
-		@return void
-	 */
-	void SetupLogging();
-	/**
-		Add a socket to the shared
-		memory and increase the
-		connected client count
+	class SharedMemory {
+	public:
+		SharedMemory();
+		~SharedMemory();
+		/**
+			Setup method for logging in the core class
+			and global logging values
 
-		@param new_socket Socket to add to shared memory
-		@return void
-	 */
-	void AddSocket(SOCKET new_socket);
-	/**
-		Drop as specific socket from
-		the shared memory and decrease
-		the connected client count
+			@return void
+		 */
+		void SetupLogging();
+		/**
+			Add a socket to the shared
+			memory and increase the
+			connected client count
 
-		@param socket Socket for to drop
-		@return void
-	 */
-	void DropSocket(SOCKET socket);
-	/**
-		Iterate through the memory to try to find if a specific lobby
-		containing a specific client
+			@param new_socket Socket to add to shared memory
+			@return void
+		 */
+		void AddSocket(SOCKET new_socket);
+		/**
+			Drop as specific socket from
+			the shared memory and decrease
+			the connected client count
 
-		@param client_id Id of the client to find
-		@param lobby Complementary parameter which will return 
-		the lobby where the client was found
-		@return Lobby* if client is found, otherwise nullptr
-	 */
-	Client* FindClient(int client_id, Lobby** lobby) const;
-	/**
-		Iterate through the memory to find the specified lobby
+			@param socket Socket for to drop
+			@return void
+		 */
+		void DropSocket(SOCKET socket);
+		/**
+			Iterate through the memory to try to find if a specific lobby
+			containing a specific client
 
-		@param lobby_id Id of the lobby to find
-		the lobby where the client was found
-		@return Lobby* if client is found, otherwise nullptr
-	 */
-	Lobby* FindLobby(int lobby_id) const;
-	/**
-		Iterate through the memory to find the specified lobby
+			@param client_id Id of the client to find
+			@param lobby Complementary parameter which will return
+			the lobby where the client was found
+			@return Lobby* if client is found, otherwise nullptr
+		 */
+		Client* FindClient(int client_id, gsl::not_null<Lobby**> lobby) const;
+		/**
+			Iterate through the memory to find the specified lobby
 
-		@param name_tag The name tag of the lobby
-		the lobby where the client was found
-		@return Lobby* if client is found, otherwise nullptr
-	 */
-	Lobby* FindLobby(std::string& name_tag) const;
-	/**
-		Creates a new separate section
-		of the server, segregated from
-		all other activities
+			@param lobby_id Id of the lobby to find
+			the lobby where the client was found
+			@return Lobby* if client is found, otherwise nullptr
+		 */
+		Lobby* FindLobby(int lobby_id) const;
+		/**
+			Iterate through the memory to find the specified lobby
 
-		@param name The name of the lobby
-		@return Lobby*
-	*/
-	Lobby* AddLobby(std::string name = "");
-	/**
-		Create a main lobby which all
-		user will be connected to
-		on connect. If a main already
-		exists then the method simply
-		return nullptr
+			@param name_tag The name tag of the lobby
+			the lobby where the client was found
+			@return Lobby* if client is found, otherwise nullptr
+		 */
+		Lobby* FindLobby(std::string& name_tag) const;
+		/**
+			Creates a new separate section
+			of the server, segregated from
+			all other activities
 
-		@return Lobby*
-	*/
-	Lobby* CreateMainLobby();
-	/**
-		Drop a lobby and all content
-		with it. This includes all
-		connections and parameters
+			@param name The name of the lobby
+			@return Lobby*
+		*/
+		Lobby* AddLobby(std::string name = "");
+		/**
+			Create a main lobby which all
+			user will be connected to
+			on connect. If a main already
+			exists then the method simply
+			return nullptr
 
-		@param id Identification of lobby
-		@return void
-	*/
-	void DropLobby(int id);
+			@return Lobby*
+		*/
+		Lobby* CreateMainLobby();
+		/**
+			Drop a lobby and all content
+			with it. This includes all
+			connections and parameters
 
-	/**
-		Checks if a string of
-		characters can be converted
-		to an int
+			@param id Identification of lobby
+			@return void
+		*/
+		void DropLobby(int id);
 
-		@param string String to test for convert
-		@return bool
-	*/
-	bool IsInt(std::string& string) const;
-	/**
-		Method appends an internal or
-		external command for the clients
-		depending on the receiver
+		/**
+			Checks if a string of
+			characters can be converted
+			to an int
 
-		@param lobby Id of the lobby
-		@param receiver Id of the receiving thread, 0 for broadcast
-		@param command The command to execute, using the "Command" enum
-		@return void
-	 */
-	 void AddCoreCall(int lobby, int receiver, int command);
+			@param string String to test for convert
+			@return bool
+		*/
+		bool IsInt(std::string& string) const;
+		/**
+			Method appends an internal or
+			external command for the clients
+			depending on the receiver
 
-	// Getters
+			@param lobby Id of the lobby
+			@param receiver Id of the receiving thread, 0 for broadcast
+			@param command The command to execute, using the "Command" enum
+			@return void
+		 */
+		void AddCoreCall(int lobby, int receiver, int command);
 
-	int GetConnectedClients() const { return connectedClients_; }
-	fd_set* GetSockets() { return &sockets_; }
-	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
-	Lobby* GetFirstLobby() const { return firstLobby_; }
-	Lobby* GetLobby(int id) const;
-	Lobby* GetMainLobby() const { return mainLobby_; }
-	int GetTimeoutTries() const { return timeoutTries_; }
-	float GetTimeoutDelay() const { return timeoutDelay_; }
-	int GetClockSpeed() const { return clockSpeed_; }
-	std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
-	/**
-		This method will take in a string input and 
-		try to find a lobby with the same name or
-		the entered id
-	 */
-	int GetLobbyId(std::string& string) const;
-	bool GetSessionLogging() const { return sessionLogging_; }
+		// Getters
 
-	// Setters
+		int GetConnectedClients() const { return connectedClients_; }
+		fd_set* GetSockets() { return &sockets_; }
+		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
+		Lobby* GetFirstLobby() const { return firstLobby_; }
+		Lobby* GetLobby(int id) const;
+		Lobby* GetMainLobby() const { return mainLobby_; }
+		int GetTimeoutTries() const { return timeoutTries_; }
+		float GetTimeoutDelay() const { return timeoutDelay_; }
+		int GetClockSpeed() const { return clockSpeed_; }
+		std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
+		/**
+			This method will take in a string input and
+			try to find a lobby with the same name or
+			the entered id
+		 */
+		int GetLobbyId(std::string& string) const;
+		bool GetSessionLogging() const { return sessionLogging_; }
 
-	void SetConnectedClients(int connected_clients);
-	void SetSockets(fd_set list);
-	//void SetFileSink(std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> shared_file_sink);
-	void SetTimeoutTries(int tries);
-	void SetTimeoutDelay(float delay);
-	void SetClockSpeed(int clock_speed);
-	void SetLobbyMax(int lobby_max);
-	void SetLobbyStartId(int start_id);
-	void SetSessionLogging(bool session_logging);
+		// Setters
 
-private:
-	// A collection of all sockets
-	fd_set sockets_;
+		void SetConnectedClients(int connected_clients);
+		void SetSockets(fd_set list);
+		//void SetFileSink(std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> shared_file_sink);
+		void SetTimeoutTries(int tries);
+		void SetTimeoutDelay(float delay);
+		void SetClockSpeed(int clock_speed);
+		void SetLobbyMax(int lobby_max);
+		void SetLobbyStartId(int start_id);
+		void SetSessionLogging(bool session_logging);
 
-	// All clients connected to the server
-	int connectedClients_ = 0;
+	private:
+		// A collection of all sockets
+		fd_set sockets_;
 
-	// Mutex objects used to for thread safety 
+		// All clients connected to the server
+		int connectedClients_ = 0;
 
-	std::mutex addSocketMtx_;
-	std::mutex dropSocketMtx_;
-	std::mutex addLobbyMtx_;
-	std::mutex dropLobbyMtx_;
+		// Mutex objects used to for thread safety 
 
-	// Index adding up for each connected client
-	int lobbyIndex_ = 0;
-	int lobbiesAlive_ = 0;
-	// Max number of lobbies
-	int lobbyMax_ = 0;
+		std::mutex addSocketMtx_;
+		std::mutex dropSocketMtx_;
+		std::mutex addLobbyMtx_;
+		std::mutex dropLobbyMtx_;
 
-	// Start of lobby linked list
-	Lobby* firstLobby_ = nullptr;
-	// End of lobby linked list
-	Lobby* lastLobby_ = nullptr;
-	// Main lobby
-	Lobby* mainLobby_ = nullptr;
+		// Index adding up for each connected client
+		int lobbyIndex_ = 0;
+		int lobbiesAlive_ = 0;
+		// Max number of lobbies
+		int lobbyMax_ = 0;
 
-	// Shared pointer to logger
-	std::shared_ptr<spdlog::logger> log_;
-	// Decides if the server will log client communication
-	bool sessionLogging_;
+		// Start of lobby linked list
+		Lobby* firstLobby_ = nullptr;
+		// End of lobby linked list
+		Lobby* lastLobby_ = nullptr;
+		// Main lobby
+		Lobby* mainLobby_ = nullptr;
 
-	// The number of tries before timeout
-	int timeoutTries_ = 0;
-	// Time to wait between each timeout iteration
-	float timeoutDelay_ = 0;
+		// Shared pointer to logger
+		std::shared_ptr<spdlog::logger> log_;
+		// Decides if the server will log client communication
+		bool sessionLogging_;
 
-	// Dynamic allocated array holding all core calls
-	std::vector<std::vector<int>> coreCall_;
+		// The number of tries before timeout
+		int timeoutTries_ = 0;
+		// Time to wait between each timeout iteration
+		float timeoutDelay_ = 0;
 
-	int clockSpeed_;
+		// Dynamic allocated array holding all core calls
+		std::vector<std::vector<int>> coreCall_;
 
-	std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink_;
-};
+		int clockSpeed_;
+
+		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink_;
+	};
+
+}
