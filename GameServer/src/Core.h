@@ -106,7 +106,7 @@ namespace hgs {
 			in the server console
 
 			@param input input string which the interpreter will process
-			@return void
+			@return std::pair<int, std::string> Int is the error code and the string is the interpreter response
 		 */
 		std::pair<int, std::string> Interpreter(std::string& input);
 

@@ -502,6 +502,11 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
 			const int id = sharedMemory_->GetLobbyId(part[1]);
+			if (id < 0) {
+				statusMessage = "Could not find lobby";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
 			// Can't drop main lobby
 			if (id != sharedMemory_->GetMainLobby()->GetId()) {
 				Lobby* current = sharedMemory_->GetFirstLobby();
@@ -528,7 +533,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			// Find the current lobby and client
 			Lobby* currentLobby = nullptr;
-			Lobby* targetLobby = sharedMemory_->GetLobby(targetedLobbyId);
+			Lobby* targetLobby = sharedMemory_->FindLobby(targetedLobbyId);
 			Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
 
 			if (currentClient != nullptr) {

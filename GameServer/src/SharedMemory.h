@@ -126,7 +126,6 @@ namespace hgs {
 		fd_set* GetSockets() { return &sockets_; }
 		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
 		Lobby* GetFirstLobby() const { return firstLobby_; }
-		Lobby* GetLobby(int id) const;
 		Lobby* GetMainLobby() const { return mainLobby_; }
 		int GetTimeoutTries() const { return timeoutTries_; }
 		float GetTimeoutDelay() const { return timeoutDelay_; }

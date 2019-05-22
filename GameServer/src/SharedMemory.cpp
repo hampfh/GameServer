@@ -244,30 +244,23 @@ void hgs::SharedMemory::AddCoreCall(const int lobby, const int receiver, const i
 	coreCall_.push_back({0, lobby, receiver, command});
 }
 
-hgs::Lobby* hgs::SharedMemory::GetLobby(const int id) const {
-	Lobby* current = firstLobby_;
-
-	// Find lobby in list
-	while (current != nullptr) {
-		// Disconnect lobby from list
-		if (current->GetId() == id) { return current; }
-
-		current = current->next;
-	}
-	return nullptr;
-}
-
 int hgs::SharedMemory::GetLobbyId(std::string& string) const {
-	if (!IsInt(string)) {
-		Lobby* targetLobby = FindLobby(string);
-		if (targetLobby != nullptr) {
-			return targetLobby->GetId();
+	Lobby* target;
+
+	if (IsInt(string)) {
+		target = FindLobby(std::stoi(string));
+		if (target != nullptr) {
+			return target->GetId();
 		}
-		
-		log_->warn("No such lobby found");
-		return -1;
-	}	
-	return std::stoi(string);
+	}
+	else {
+		target = FindLobby(string);
+		if (target != nullptr) {
+			return target->GetId();
+		}
+	}
+
+	return -1;
 }
 
 void hgs::SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }
