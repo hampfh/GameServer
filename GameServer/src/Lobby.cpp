@@ -114,7 +114,7 @@ void hgs::Lobby::CleanUp() {
 	DropAwaiting();
 
 	// Delete log
-	spdlog::drop("Lobby#" + std::to_string(id_));
+	spdlog::drop("Lobby#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));
 	spdlog::drop("SessionLog#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));
 }
 
