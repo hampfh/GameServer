@@ -204,7 +204,6 @@ namespace hgs {
 		int DropAll();
 
 		// Getters
-		//State GetState() const { return lobbyState_; };
 		std::vector<std::string> GetClientCommands() const { return commandQueue_; };
 		int GetConnectedClients() const { return connectedClients_; };
 		int GetId() const { return id_; };
