@@ -100,18 +100,7 @@ hgs::Lobby::~Lobby() {
 
 void hgs::Lobby::CleanUp() {
 	// Delete all client
-	Client* current = firstClient_;
-	Client* prev = firstClient_;
-	while (current != nullptr) {
-		// Disconnect the socket
-		sharedMemory_->DropSocket(current->GetSocket());
-		log_->info("Dropped client #" + std::to_string(current->id));
-		
-		current = current->next;
-		prev->End();
-		prev = current;
-	}
-	DropAwaiting();
+	DropAll();
 
 	// Delete log
 	spdlog::drop("Lobby#" + (!nameTag_.empty() ? nameTag_ : std::to_string(id_)));

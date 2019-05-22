@@ -192,7 +192,7 @@ namespace hgs {
 			A command called to drop
 			the lobby. When called it
 			stops the loop and performs
-			at cleanup
+			a cleanup
 
 			@return void
 		 */

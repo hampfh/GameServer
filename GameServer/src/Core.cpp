@@ -450,7 +450,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			// Compose lobby data
 			Lobby* current = sharedMemory_->GetFirstLobby();
-			std::string result = "\n===== Running lobbies =====\n";
+			std::string result = "\n===== Running lobbies =====\nLobbies running: " + std::to_string(sharedMemory_->GetLobbyCount()) + "\n";
 			while (current != nullptr) {
 				result.append("Lobby#" + std::to_string(current->GetId()) + 
 					(!current->GetNameTag().empty() ? " [" + current->GetNameTag() + "]" : "") + 
@@ -465,17 +465,21 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			log_->info(result);
 		}
 		else if (part.size() >= 3 && part[2] == "list") {
-			const int lobbyId = sharedMemory_->GetLobbyId(part[1]);
-
-			Lobby* current = sharedMemory_->GetFirstLobby();
-			// Search for the lobby with the assigned id_
-			while (current != nullptr) {
-				if (current->GetId() == lobbyId) {
-					statusMessage = current->List();
-					break;
-				}
-				current = current->next;
+			Lobby* lobby;
+			if (sharedMemory_->IsInt(part[1])) {
+				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
 			}
+			else {
+				lobby = sharedMemory_->FindLobby(part[1]);
+			}
+
+			if (lobby == nullptr) {
+				statusMessage = "Could not find lobby";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
+
+			statusMessage = lobby->List();
 		}
 		else if (part.size() >= 3 && part[2] == "start") {
 			const int id = sharedMemory_->GetLobbyId(part[1]);
@@ -502,23 +506,25 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
 			const int id = sharedMemory_->GetLobbyId(part[1]);
-			if (id < 0) {
+
+			Lobby* lobby;
+
+			if (sharedMemory_->IsInt(part[1])) {
+				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
+			}
+			else {
+				lobby = sharedMemory_->FindLobby(part[1]);
+			}
+			
+			if (lobby == nullptr) {
 				statusMessage = "Could not find lobby";
 				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 			// Can't drop main lobby
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				Lobby* current = sharedMemory_->GetFirstLobby();
-				// Search for the lobby with the assigned id_
-				while (current != nullptr) {
-					if (current->GetId() == id) {
-						sharedMemory_->DropLobby(id);
-						break;
-					}
-					current = current->next;
-				}
-				return std::make_pair(1, "Could not find lobby");
+			if (lobby != sharedMemory_->GetMainLobby()) {
+				sharedMemory_->DropLobby(lobby);
+				return std::make_pair(0, "Lobby dropped");
 			}
 			statusMessage = "Can't drop main lobby";
 			log_->warn(statusMessage);

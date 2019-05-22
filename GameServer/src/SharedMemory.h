@@ -98,6 +98,7 @@ namespace hgs {
 			@return void
 		*/
 		void DropLobby(int id);
+		void DropLobby(Lobby* lobby);
 
 		/**
 			Checks if a string of
@@ -138,6 +139,7 @@ namespace hgs {
 		 */
 		int GetLobbyId(std::string& string) const;
 		bool GetSessionLogging() const { return sessionLogging_; }
+		int GetLobbyCount() const { return lobbiesAlive_; };
 
 		// Setters
 

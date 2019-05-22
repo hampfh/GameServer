@@ -127,6 +127,7 @@ hgs::Lobby* hgs::SharedMemory::AddLobby(std::string name) {
 
 			// Add a new lobby and assign an id_
 			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
+			lobbiesAlive_++;
 
 			// Connect to list
 			if (firstLobby_ == nullptr) {
@@ -195,28 +196,7 @@ void hgs::SharedMemory::DropLobby(const int id) {
 			while (current != nullptr) {
 				// Disconnect lobby from list
 				if (current->GetId() == id) {
-					// Targeted lobby is first in list
-					if (current == firstLobby_ && firstLobby_ == lastLobby_) {
-						firstLobby_ = nullptr;
-						lastLobby_ = nullptr;
-					}
-					else if (current == firstLobby_) {
-						firstLobby_ = current->next;
-						firstLobby_->prev = nullptr;
-					}
-						// Targeted lobby is last in list
-					else if (current == lastLobby_) {
-						lastLobby_ = current->prev;
-						lastLobby_->next = nullptr;
-					}
-						// Target lobby is somewhere in middle of list
-					else { current->prev->next = current->next; }
-
-					lobbiesAlive_--;
-
-					// Delete the lobby
-					log_->info("Dropped lobby " + std::to_string(current->GetId()));
-					current->Drop();
+					DropLobby(current);
 					break;
 				}
 
@@ -228,6 +208,31 @@ void hgs::SharedMemory::DropLobby(const int id) {
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
+}
+
+void hgs::SharedMemory::DropLobby(Lobby* lobby) {
+	// Targeted lobby is first in list
+	if (lobby == firstLobby_ && firstLobby_ == lastLobby_) {
+		firstLobby_ = nullptr;
+		lastLobby_ = nullptr;
+	}
+	else if (lobby == firstLobby_) {
+		firstLobby_ = lobby->next;
+		firstLobby_->prev = nullptr;
+	}
+	// Targeted lobby is last in list
+	else if (lobby == lastLobby_) {
+		lastLobby_ = lobby->prev;
+		lastLobby_->next = nullptr;
+	}
+	// Target lobby is somewhere in middle of list
+	else { lobby->prev->next = lobby->next; }
+
+
+	// Delete the lobby
+	lobby->Drop();
+	lobbiesAlive_--;
+	log_->info("Dropped lobby " + std::to_string(lobby->GetId()));
 }
 
 bool hgs::SharedMemory::IsInt(std::string& string) const {
