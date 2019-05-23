@@ -4,6 +4,7 @@
 # Ignore log file
 logs/
 *.conf
+tests/
 
 # User-specific files
 *.suo

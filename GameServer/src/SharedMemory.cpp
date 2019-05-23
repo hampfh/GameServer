@@ -1,8 +1,7 @@
 #include "pch.h"
 #include "SharedMemory.h"
-#include <experimental/filesystem>
 
-SharedMemory::SharedMemory() {
+hgs::SharedMemory::SharedMemory() {
 
 	clockSpeed_ = 0;
 	sessionLogging_ = false;
@@ -13,7 +12,7 @@ SharedMemory::SharedMemory() {
 	coreCall_.clear();
 }
 
-SharedMemory::~SharedMemory() {
+hgs::SharedMemory::~SharedMemory() {
 	// Delete all lobbies
 	Lobby* current = firstLobby_;
 	Lobby* prev = firstLobby_;
@@ -26,7 +25,7 @@ SharedMemory::~SharedMemory() {
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
 }
 
-void SharedMemory::SetupLogging() {
+void hgs::SharedMemory::SetupLogging() {
 	const std::string logFilePath = "logs/";
 
 	// If log directory does not exists it is created
@@ -49,7 +48,7 @@ void SharedMemory::SetupLogging() {
 	register_logger(log_);
 }
 
-void SharedMemory::AddSocket(const SOCKET new_socket) {
+void hgs::SharedMemory::AddSocket(const SOCKET new_socket) {
 	while (true) {
 		if (addSocketMtx_.try_lock()) {
 			// Add newClient to the socketList
@@ -63,7 +62,7 @@ void SharedMemory::AddSocket(const SOCKET new_socket) {
 	}
 }
 
-void SharedMemory::DropSocket(const SOCKET socket) {
+void hgs::SharedMemory::DropSocket(const SOCKET socket) {
 	while (true) {
 		if (dropSocketMtx_.try_lock()) {
 			// Decrease online clients
@@ -79,7 +78,7 @@ void SharedMemory::DropSocket(const SOCKET socket) {
 	}
 }
 
-Client* SharedMemory::FindClient(const int client_id, Lobby** lobby) const {
+hgs::Client* hgs::SharedMemory::FindClient(const int client_id, const gsl::not_null<Lobby**> lobby) const {
 	Lobby* current = firstLobby_;
 
 	while (current != nullptr) {
@@ -94,7 +93,7 @@ Client* SharedMemory::FindClient(const int client_id, Lobby** lobby) const {
 	return nullptr;
 }
 
-Lobby* SharedMemory::FindLobby(const int lobby_id) const {
+hgs::Lobby* hgs::SharedMemory::FindLobby(const int lobby_id) const {
 	Lobby* current = firstLobby_;
 
 	while (current != nullptr) {
@@ -106,7 +105,7 @@ Lobby* SharedMemory::FindLobby(const int lobby_id) const {
 	return nullptr;
 }
 
-Lobby* SharedMemory::FindLobby(std::string& name_tag) const {
+hgs::Lobby* hgs::SharedMemory::FindLobby(std::string& name_tag) const {
 	Lobby* current = firstLobby_;
 
 	while (current != nullptr) {
@@ -118,16 +117,18 @@ Lobby* SharedMemory::FindLobby(std::string& name_tag) const {
 	return nullptr;
 }
 
-Lobby* SharedMemory::AddLobby(std::string name) {
+hgs::Lobby* hgs::SharedMemory::AddLobby(std::string name) {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
 			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
 				log_->warn("Lobby max reached");
+				addLobbyMtx_.unlock();
 				return nullptr;
 			}
 
 			// Add a new lobby and assign an id_
 			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
+			lobbiesAlive_++;
 
 			// Connect to list
 			if (firstLobby_ == nullptr) {
@@ -155,7 +156,7 @@ Lobby* SharedMemory::AddLobby(std::string name) {
 	}
 }
 
-Lobby* SharedMemory::CreateMainLobby() {
+hgs::Lobby* hgs::SharedMemory::CreateMainLobby() {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
 			if (mainLobby_ != nullptr) {
@@ -185,7 +186,7 @@ Lobby* SharedMemory::CreateMainLobby() {
 	}
 }
 
-void SharedMemory::DropLobby(const int id) {
+void hgs::SharedMemory::DropLobby(const int id) {
 	while (true) {
 		if (dropLobbyMtx_.try_lock()) {
 			// Delete lobby, (disconnect all clients)
@@ -196,28 +197,7 @@ void SharedMemory::DropLobby(const int id) {
 			while (current != nullptr) {
 				// Disconnect lobby from list
 				if (current->GetId() == id) {
-					// Targeted lobby is first in list
-					if (current == firstLobby_ && firstLobby_ == lastLobby_) {
-						firstLobby_ = nullptr;
-						lastLobby_ = nullptr;
-					}
-					else if (current == firstLobby_) {
-						firstLobby_ = current->next;
-						firstLobby_->prev = nullptr;
-					}
-						// Targeted lobby is last in list
-					else if (current == lastLobby_) {
-						lastLobby_ = current->prev;
-						lastLobby_->next = nullptr;
-					}
-						// Target lobby is somewhere in middle of list
-					else { current->prev->next = current->next; }
-
-					lobbiesAlive_--;
-
-					// Delete the lobby
-					log_->info("Dropped lobby " + std::to_string(current->GetId()));
-					current->Drop();
+					DropLobby(current);
 					break;
 				}
 
@@ -231,7 +211,39 @@ void SharedMemory::DropLobby(const int id) {
 	}
 }
 
-bool SharedMemory::IsInt(std::string& string) const {	
+void hgs::SharedMemory::DropLobby(Lobby* lobby) {
+	// Targeted lobby is first in list
+	if (lobby == firstLobby_ && firstLobby_ == lastLobby_) {
+		firstLobby_ = nullptr;
+		lastLobby_ = nullptr;
+		log_->info("First and last");
+	}
+	else if (lobby == firstLobby_) {
+		firstLobby_ = lobby->next;
+		firstLobby_->prev = nullptr;
+		log_->info("First");
+	}
+	// Targeted lobby is last in list
+	else if (lobby == lastLobby_) {
+		lastLobby_ = lobby->prev;
+		lastLobby_->next = nullptr;
+		log_->info("Last");
+	}
+	// Target lobby is somewhere in middle of list
+	else { 
+		lobby->prev->next = lobby->next; 
+		lobby->next->prev = lobby->prev;
+		
+		log_->info("Middle");
+	}
+
+	// Delete the lobby
+	lobby->Drop();
+	lobbiesAlive_--;
+	log_->info("Dropped lobby " + std::to_string(lobby->GetId()));
+}
+
+bool hgs::SharedMemory::IsInt(std::string& string) const {
 	try {
 		std::stoi(string);
 		return true;
@@ -239,50 +251,43 @@ bool SharedMemory::IsInt(std::string& string) const {
 	catch (...) { return false; }
 }
 
-void SharedMemory::AddCoreCall(const int lobby, const int receiver, const int command) {
+void hgs::SharedMemory::AddCoreCall(const int lobby, const int receiver, const int command) {
 	// Create and append call
 	// Sender, Receiver, Command
 	coreCall_.push_back({0, lobby, receiver, command});
 }
 
-Lobby* SharedMemory::GetLobby(const int id) const {
-	Lobby* current = firstLobby_;
+int hgs::SharedMemory::GetLobbyId(std::string& string) const {
+	Lobby* target;
 
-	// Find lobby in list
-	while (current != nullptr) {
-		// Disconnect lobby from list
-		if (current->GetId() == id) { return current; }
-
-		current = current->next;
-	}
-	return nullptr;
-}
-
-int SharedMemory::GetLobbyId(std::string& string) const {
-	if (!IsInt(string)) {
-		Lobby* targetLobby = FindLobby(string);
-		if (targetLobby != nullptr) {
-			return targetLobby->GetId();
+	if (IsInt(string)) {
+		target = FindLobby(std::stoi(string));
+		if (target != nullptr) {
+			return target->GetId();
 		}
-		
-		log_->warn("No such lobby found");
-		return -1;
-	}	
-	return std::stoi(string);
+	}
+	else {
+		target = FindLobby(string);
+		if (target != nullptr) {
+			return target->GetId();
+		}
+	}
+
+	return -1;
 }
 
-void SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }
+void hgs::SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }
 
-void SharedMemory::SetSockets(const fd_set list) { sockets_ = list; }
+void hgs::SharedMemory::SetSockets(const fd_set list) { sockets_ = list; }
 
-void SharedMemory::SetTimeoutTries(const int tries) { timeoutTries_ = tries; }
+void hgs::SharedMemory::SetTimeoutTries(const int tries) { timeoutTries_ = tries; }
 
-void SharedMemory::SetTimeoutDelay(const float delay) { timeoutDelay_ = delay; }
+void hgs::SharedMemory::SetTimeoutDelay(const float delay) { timeoutDelay_ = delay; }
 
-void SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_speed; }
+void hgs::SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_speed; }
 
-void SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };
+void hgs::SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };
 
-void SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; }
+void hgs::SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; }
 
-void SharedMemory::SetSessionLogging(const bool session_logging) { sessionLogging_ = session_logging; }
+void hgs::SharedMemory::SetSessionLogging(const bool session_logging) { sessionLogging_ = session_logging; }

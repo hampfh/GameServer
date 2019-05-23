@@ -3,7 +3,7 @@
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
-Core::Core() {
+hgs::Core::Core() {
 	clientIndex_ = 0;
 	rconIndex_ = 1;
 	maxConnections_ = 0;
@@ -55,11 +55,11 @@ Core::Core() {
 	}
 }
 
-Core::~Core() {
+hgs::Core::~Core() {
 	
 }
 
-void Core::CleanUp() const {
+void hgs::Core::CleanUp() const {
 	// Clean up server
 	WSACleanup();
 
@@ -67,7 +67,7 @@ void Core::CleanUp() const {
 
 }
 
-int Core::SetupConfig() {
+int hgs::Core::SetupConfig() {
 	log_->info("Loading configuration file...");
 	try {
 		// Load content from conf file
@@ -160,7 +160,7 @@ int Core::SetupConfig() {
 	return 0;
 }
 
-int Core::SetupWinSock() {
+int hgs::Core::SetupWinSock() {
 
 	// Initialize win sock	
 	const WORD ver = MAKEWORD(2, 2);
@@ -212,7 +212,7 @@ int Core::SetupWinSock() {
 	return 0;
 }
 
-int Core::SetupRcon() {
+int hgs::Core::SetupRcon() {
 
 	// Create listening socket
 	rconListening_ = socket(AF_INET, SOCK_STREAM, 0);
@@ -251,7 +251,7 @@ int Core::SetupRcon() {
 	return 0;
 }
 
-void Core::SetupSessionDir() const {
+void hgs::Core::SetupSessionDir() const {
 	const std::string path = "sessions/";
 
 	if (std::experimental::filesystem::exists(path)) {
@@ -264,7 +264,7 @@ void Core::SetupSessionDir() const {
 	}
 }
 
-void Core::Execute() {
+void hgs::Core::Execute() {
 
 	while(running_) {
 		Loop();
@@ -272,7 +272,7 @@ void Core::Execute() {
 	CleanUp();
 }
 
-void Core::Loop() {
+void hgs::Core::Loop() {
 
 	// Duplicate master
 	workingSet_ = *sharedMemory_->GetSockets();
@@ -289,7 +289,7 @@ void Core::Loop() {
 	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
 }
 
-void Core::InitializeReceiving(const int select_result, const int rcon_select_result) {
+void hgs::Core::InitializeReceiving(const int select_result, const int rcon_select_result) {
 
 	// Go through all new clients to game
 
@@ -369,7 +369,7 @@ void Core::InitializeReceiving(const int select_result, const int rcon_select_re
 	}
 }
 
-void Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
+void hgs::Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
 	Lobby* current = sharedMemory_->GetFirstLobby();
 
 	while (current != nullptr) {
@@ -378,36 +378,37 @@ void Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
 	}
 }
 
-void Core::ConsoleThread() {
+void hgs::Core::ConsoleThread() {
 	std::string command;
 	while (true) {
 		std::getline(std::cin, command);
-		Interpreter(&command);
+		Interpreter(command);
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
 
-int Core::ServerCommand(std::string* command) {
+std::pair<int, std::string> hgs::Core::ServerCommand(std::string& command) {
 	while (true) {
 		if (callInterpreter_.try_lock()) {
-			const int result = Interpreter(command);
+			const std::pair<int, std::string> result = Interpreter(command);
 			callInterpreter_.unlock();
 			return result;
 		}
 	}
 }
 
-int Core::Interpreter(std::string* callback_string) {
+std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 	std::vector<std::string> part;
-	std::string command = *callback_string;
+	std::string command = input;
+	std::string statusMessage;
 	
 	const std::regex regexCommand("[^ ]+");
 	std::smatch matcher;
 
 	// Check if input is a command call
 	if (command[0] != '/') {
-		return 1;
+		return std::make_pair(1, "No command");
 	}
 
 	while (std::regex_search(command, matcher, regexCommand)) {
@@ -426,9 +427,9 @@ int Core::Interpreter(std::string* callback_string) {
 		if (currentClient != nullptr && clientLobby != nullptr) {
 			clientLobby->DropClient(currentClient, false, true);
 		} else {
-			*callback_string = "Client or lobby not found";
-			log_->warn(*callback_string);
-			return 1;
+			statusMessage = "Client or lobby not found";
+			log_->warn(statusMessage);
+			return std::make_pair(1, statusMessage);
 		}
 		
 	} else if (part[0] == "/Lobby") {
@@ -437,9 +438,9 @@ int Core::Interpreter(std::string* callback_string) {
 				if (sharedMemory_->FindLobby(part[2]) == nullptr) {
 					sharedMemory_->AddLobby(part[2]);
 				} else {
-					*callback_string = "There is already a lobby with that name";
-					log_->warn(*callback_string);
-					return 1;
+					statusMessage = "There is already a lobby with that name";
+					log_->warn(statusMessage);
+					return std::make_pair(1, statusMessage);
 				}
 			} else {
 				sharedMemory_->AddLobby();
@@ -449,7 +450,7 @@ int Core::Interpreter(std::string* callback_string) {
 
 			// Compose lobby data
 			Lobby* current = sharedMemory_->GetFirstLobby();
-			std::string result = "\n===== Running lobbies =====\n";
+			std::string result = "\n===== Running lobbies =====\nLobbies running: " + std::to_string(sharedMemory_->GetLobbyCount()) + "\n";
 			while (current != nullptr) {
 				result.append("Lobby#" + std::to_string(current->GetId()) + 
 					(!current->GetNameTag().empty() ? " [" + current->GetNameTag() + "]" : "") + 
@@ -460,65 +461,72 @@ int Core::Interpreter(std::string* callback_string) {
 			result.append("===========================");
 
 			// Print data
-			*callback_string = result;
+			statusMessage = result;
 			log_->info(result);
 		}
 		else if (part.size() >= 3 && part[2] == "list") {
-			const int lobbyId = sharedMemory_->GetLobbyId(part[1]);
-
-			Lobby* current = sharedMemory_->GetFirstLobby();
-			// Search for the lobby with the assigned id_
-			while (current != nullptr) {
-				if (current->GetId() == lobbyId) {
-					*callback_string = current->List();
-					break;
-				}
-				current = current->next;
-			}
-		}
-		else if (part.size() >= 3 && part[2] == "start") {
-			const int id = sharedMemory_->GetLobbyId(part[1]);
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				BroadcastCoreCall(id, 0, Command::start);
-				*callback_string = "Lobby started!";
-				log_->info(*callback_string);
-			} else {
-				*callback_string = "Main lobby cannot be targeted for start";
-				log_->warn(*callback_string);
-				return 1;
-			}
-		}
-		else if (part.size() >= 3 && part[2] == "pause") {
-			const int id = sharedMemory_->GetLobbyId(part[1]);
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				BroadcastCoreCall(id, 0, Command::pause);
-				*callback_string = "Lobby paused!";
-				log_->info(*callback_string);
+			Lobby* lobby;
+			if (sharedMemory_->IsInt(part[1])) {
+				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
 			}
 			else {
-				*callback_string = "Main lobby cannot be targeted for pause";
-				log_->warn(*callback_string);
-				return 1;
+				lobby = sharedMemory_->FindLobby(part[1]);
 			}
+
+			if (lobby == nullptr) {
+				statusMessage = "Could not find lobby";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
+
+			statusMessage = lobby->List();
+		}
+		else if (part.size() >= 3 && (part[2] == "start" || part[2] == "pause")) {
+
+			Command action = (part[2] == "start" ? start : pause);
+
+			const int id = sharedMemory_->GetLobbyId(part[1]);
+			if (id == sharedMemory_->GetMainLobby()->GetId()) {
+				statusMessage = "Main lobby cannot be targeted for this action";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
+			else if (id == -1) {
+				statusMessage = "Entered lobby was not found";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
+
+			BroadcastCoreCall(id, 0, action);
+			statusMessage = "Lobby "; 
+			statusMessage.append(action == Command::start ? "started" : "paused");
+			statusMessage.append("!");
+			log_->info(statusMessage);
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
-			const int id = sharedMemory_->GetLobbyId(part[1]);
-			// Can't drop main lobby
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				Lobby* current = sharedMemory_->GetFirstLobby();
-				// Search for the lobby with the assigned id_
-				while (current != nullptr) {
-					if (current->GetId() == id) {
-						sharedMemory_->DropLobby(id);
-						break;
-					}
-					current = current->next;
-				}
-				return 0;
+
+			Lobby* lobby;
+
+			if (sharedMemory_->IsInt(part[1])) {
+				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
 			}
-			*callback_string = "Can't drop main lobby";
-			log_->warn(*callback_string);
-			return 1;
+			else {
+				lobby = sharedMemory_->FindLobby(part[1]);
+			}
+			
+			if (lobby == nullptr) {
+				statusMessage = "Could not find lobby";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
+			}
+			// Can't drop main lobby
+			if (lobby != sharedMemory_->GetMainLobby()) {
+				sharedMemory_->DropLobby(lobby);
+				return std::make_pair(0, "Lobby dropped");
+			}
+			statusMessage = "Can't drop main lobby";
+			log_->warn(statusMessage);
+			return std::make_pair(1, statusMessage);
 		}
 		// Second argument is lobby, third is client
 		else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
@@ -529,7 +537,7 @@ int Core::Interpreter(std::string* callback_string) {
 
 			// Find the current lobby and client
 			Lobby* currentLobby = nullptr;
-			Lobby* targetLobby = sharedMemory_->GetLobby(targetedLobbyId);
+			Lobby* targetLobby = sharedMemory_->FindLobby(targetedLobbyId);
 			Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
 
 			if (currentClient != nullptr) {
@@ -542,32 +550,36 @@ int Core::Interpreter(std::string* callback_string) {
 
 						// Kick client
 						currentClient->End();
-						*callback_string = "Client was dropped, could not insert client to lobby";
-						log_->error(*callback_string);
+						statusMessage = "Client was dropped, could not insert client to lobby";
+						log_->error(statusMessage);
+						return std::make_pair(1, statusMessage);
 					}
 
 				} else {
-					*callback_string = "Lobby#" + std::to_string(clientId) + " not found";
-					log_->warn(*callback_string);
+					statusMessage = "Lobby#" + std::to_string(clientId) + " not found";
+					log_->warn(statusMessage);
+					return std::make_pair(1, statusMessage);
 				}
 			}
 			else {
-				*callback_string = "Client not found";
-				log_->warn(*callback_string);
-				return 1;
+				statusMessage = "Client not found";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
 			}
 		} else {
-			*callback_string = "No specifier";
-			log_->warn(*callback_string);
+			statusMessage = "No specifier";
+			log_->warn(statusMessage);
+			return std::make_pair(1, statusMessage);
 		}
 	}
 	else if (part[0] == "/Stop") {
 		running_ = false;
 	}
 	else {
-		*callback_string = "Command not recognized";
-		log_->warn(*callback_string);
+		statusMessage = "Command not recognized";
+		log_->warn(statusMessage);
+		return std::make_pair(1, statusMessage);
 	}
 
-	return 0;
+	return std::make_pair(0, statusMessage);
 }

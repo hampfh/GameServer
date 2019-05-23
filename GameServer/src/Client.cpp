@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Client.h"
 
-Client::Client(const SOCKET socket, SharedMemory* shared_memory, const int id, const int lobby_id) : 
+hgs::Client::Client(const SOCKET socket, gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
 socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 	isOnline_ = true;
@@ -23,14 +23,14 @@ socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 	log_->info("Assigned ID: " + std::to_string(id));
 }
 
-Client::~Client() {
+hgs::Client::~Client() {
 	isOnline_ = false;
 	log_->info("Dropped");
 	spdlog::drop("Client#" + std::to_string(socket_));
 	sharedMemory_->DropSocket(socket_);
 }
 
-void Client::Loop() {
+void hgs::Client::Loop() {
 	while (isOnline_) {
 		// Listen for calls from core
 		CoreCallListener();
@@ -67,7 +67,7 @@ void Client::Loop() {
 	delete this;
 }
 
-void Client::Receive() {
+void hgs::Client::Receive() {
 
 	state_ = receiving;
 
@@ -108,7 +108,7 @@ void Client::Receive() {
 
 }
 
-void Client::Send() {
+void hgs::Client::Send() {
 	state_ = sending;
 
 	// Append potential command from core
@@ -136,22 +136,22 @@ void Client::Send() {
 	pendingSend_.clear();
 }
 
-void Client::CoreCallListener() {
+void hgs::Client::CoreCallListener() {
 
 	// Get core call
 	if (!coreCall_.empty()) {
 		pendingSend_.append("{0|");
 		for (auto frame : coreCall_) {
-			// Check if call is meant for this client or is a broadcast
-			if (frame[0] == 0 &&
-				(frame[1] == lobbyId || frame[1] == 0) &&
-				(frame[2] == id || frame[2] == 0)) {
-				if (frame.size() != 4) {
-					log_->warn("Bad formatted call, ignoring");
-					continue;
-				}
+			if (frame.size() != 3) {
+				log_->warn("Bad formatted call, ignoring");
+				continue;
+			}
 
-				const int command = frame[3];
+			// Check if call is meant for this client or is a broadcast
+			if ((frame[0] == lobbyId || frame[0] == 0) &&
+				(frame[1] == id || frame[1] == 0)) {
+
+				const int command = frame[2];
 
 				// Interpret command
 
@@ -181,7 +181,7 @@ void Client::CoreCallListener() {
 	}
 }
 
-std::vector<std::string> Client::Interpret(std::string string) const {
+std::vector<std::string> hgs::Client::Interpret(std::string string) const {
 
 	std::vector<std::string> matches;
 
@@ -199,37 +199,37 @@ std::vector<std::string> Client::Interpret(std::string string) const {
 	return matches;
 }
 
-void Client::RequestDrop() const {
+void hgs::Client::RequestDrop() const {
 
 	// Add self to dropList in lobby
 	lobbyMemory_->AddDrop(this->id);
 }
 
-void Client::End() {
+void hgs::Client::End() {
 	isOnline_ = false;
 	attached_ = false;
 }
 
-void Client::DropLobbyConnections() {
+void hgs::Client::DropLobbyConnections() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;
 }
 
-void Client::SetCoreCall(std::vector<int> coreCall) { coreCall_.push_back(coreCall); }
+void hgs::Client::SetCoreCall(std::vector<int>& core_call) { coreCall_.push_back(core_call); }
 
-void Client::SetSocket(const SOCKET socket) { socket_ = socket; }
+void hgs::Client::SetSocket(const SOCKET socket) { socket_ = socket; }
 
-void Client::SetId(const int id) { this->id = id; }
+void hgs::Client::SetId(const int id) { this->id = id; }
 
-void Client::SetInterval(const std::chrono::microseconds microseconds) { loopInterval_ = microseconds; }
+void hgs::Client::SetInterval(const std::chrono::microseconds microseconds) { loopInterval_ = microseconds; }
 
-void Client::SetMemory(SharedLobbyMemory* lobby_memory) { lobbyMemory_ = lobby_memory; }
+void hgs::Client::SetMemory(const gsl::not_null<SharedLobbyMemory*> lobby_memory) { lobbyMemory_ = lobby_memory; }
 
-void Client::SetPause(const bool pause) { paused_ = pause; };
+void hgs::Client::SetPause(const bool pause) { paused_ = pause; };
 
-void Client::SetState(const State state) { state_ = state; }
+void hgs::Client::SetState(const State state) { state_ = state; }
 
-void Client::SetPrevState(const State state) { lastState_ = state; };
+void hgs::Client::SetPrevState(const State state) { lastState_ = state; };
 
-void Client::SetOutgoing(const std::vector<std::string> outgoing) { outgoingCommands_ = outgoing; }
+void hgs::Client::SetOutgoing(std::vector<std::string>& outgoing) { outgoingCommands_ = outgoing; }

@@ -1,10 +1,11 @@
 #include "pch.h"
 #include "RconClient.h"
 
-RconClient::RconClient(const SOCKET socket, const int id, Core* core, std::string& password, fd_set* socket_list, std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink) :
+hgs::RconClient::RconClient(const SOCKET socket, const int id, const gsl::not_null<Core*> core, std::string& password, fd_set* socket_list, const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink) :
 	socket_(socket), id_(id), core_(core), password_(password), socketList_(socket_list) {
 
 	isOnline_ = true;
+	confirmed_ = false;
 
 	// Setup client logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -16,19 +17,16 @@ RconClient::RconClient(const SOCKET socket, const int id, Core* core, std::strin
 	spdlog::register_logger(log_);
 
 	log_->info("Rcon session started");
-
-	sockaddr* address = nullptr;
-	int* length = nullptr;
 }
 
-RconClient::~RconClient() {
+hgs::RconClient::~RconClient() {
 	isOnline_ = false;
 	spdlog::drop("Rcon#" + std::to_string(socket_));
 	closesocket(socket_);
 }
 
 
-void RconClient::Loop() {
+void hgs::RconClient::Loop() {
 	while (isOnline_) {
 		Receive();
 		Send();
@@ -37,7 +35,7 @@ void RconClient::Loop() {
 	delete this;
 }
 
-void RconClient::Receive() {
+void hgs::RconClient::Receive() {
 	char incoming[1024];
 
 	// Clear the storage before usage
@@ -74,20 +72,23 @@ void RconClient::Receive() {
 	}
 
 	// Execute rcon command
-	if (core_->ServerCommand(&rconCommand) == 0) {
+	const std::pair<int, std::string> result = core_->ServerCommand(rconCommand);
+	rconCommand = result.second;
+
+	if (result.first == 0) {
 		log_->info("Performed remote command");
 	}
 	outgoing_ = rconCommand;
 }
 
-void RconClient::Send() const {
+void hgs::RconClient::Send() const {
 	
 	// Send response
 	// TODO encode output using compressor tool
 	send(socket_, outgoing_.c_str(), static_cast<int>(outgoing_.size()) + 1, 0);
 }
 
-void RconClient::Drop() {
+void hgs::RconClient::Drop() {
 	closesocket(socket_);
 	FD_CLR(socket_, socketList_);
 	isOnline_ = false;
