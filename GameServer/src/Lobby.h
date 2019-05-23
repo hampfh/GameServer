@@ -102,13 +102,6 @@ namespace hgs {
 		 */
 		void InitializeReceiving();
 		/**
-			Resend data for all clients
-			with a specific state
-
-			@return void
-		 */
-		void Resend(State resend_on);
-		/**
 			Drops all clients with a specific state
 			@param non_condition_state Drops all clients which is not this state
 			@return void

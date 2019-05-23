@@ -499,10 +499,11 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 				BroadcastCoreCall(id, 0, Command::pause);
 				statusMessage = "Lobby paused!";
 				log_->info(statusMessage);
+			} else {
+				statusMessage = "Main lobby cannot be targeted for pause";
+				log_->warn(statusMessage);
+				return std::make_pair(1, statusMessage);
 			}
-			statusMessage = "Main lobby cannot be targeted for pause";
-			log_->warn(statusMessage);
-			return std::make_pair(1, statusMessage);
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
 

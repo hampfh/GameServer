@@ -254,25 +254,6 @@ void hgs::Lobby::InitializeReceiving() {
 	}
 }
 
-void hgs::Lobby::Resend(const State resend_on) {
-	// Iterate through all clients
-	Client* current = firstClient_;
-	while (current != nullptr) {
-
-		// Target clients which have not received anything
-		if (current->GetState() == resend_on) {
-			std::vector<int> argument = { 0, lastCoreCall_[0], lastCoreCall_[1] , lastCoreCall_[2] };
-			// Assign the latest core call to the client
-			current->SetCoreCall(argument);
-			current->SetOutgoing(commandQueue_);
-			current->CoreCallListener();
-			current->Send();
-		}
-
-		current = current->next;
-	}
-}
-
 void hgs::Lobby::DropNonResponding(const State non_condition_state) {
 	// Kick non responding clients (all clients which are not ready at this point)
 	Client* current = (firstClient_ == nullptr ? nullptr : firstClient_);
@@ -301,8 +282,8 @@ void hgs::Lobby::BroadcastCoreCall(int& lobby, int& receiver, int& command) {
 	lastCoreCall_[2] = command;
 
 	while (current != nullptr) {
-		std::vector<int> argument = {  };
-		current->SetCoreCall(argument);
+		std::vector<int> frame = { lobby, receiver, command };
+		current->SetCoreCall(frame);
 		current = current->next;
 	}
 }
@@ -485,7 +466,8 @@ int hgs::Lobby::DropAll() {
 		prev->End();
 		connectedClients_--;
 
-		log_->info("Dropped client #" + std::to_string(current->id));
+		log_->info("Dropped client #" + std::to_string(prev->id));
+
 		prev = current;
 	}
 	return 0;

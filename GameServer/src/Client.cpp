@@ -142,17 +142,16 @@ void hgs::Client::CoreCallListener() {
 	if (!coreCall_.empty()) {
 		pendingSend_.append("{0|");
 		for (auto frame : coreCall_) {
-			if (frame.size() != 4) {
+			if (frame.size() != 3) {
 				log_->warn("Bad formatted call, ignoring");
 				continue;
 			}
 
 			// Check if call is meant for this client or is a broadcast
-			if (frame[0] == 0 &&
-				(frame[1] == lobbyId || frame[1] == 0) &&
-				(frame[2] == id || frame[2] == 0)) {
+			if ((frame[0] == lobbyId || frame[0] == 0) &&
+				(frame[1] == id || frame[1] == 0)) {
 
-				const int command = frame[3];
+				const int command = frame[2];
 
 				// Interpret command
 
