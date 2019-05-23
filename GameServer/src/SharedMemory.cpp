@@ -122,6 +122,7 @@ hgs::Lobby* hgs::SharedMemory::AddLobby(std::string name) {
 		if (addLobbyMtx_.try_lock()) {
 			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
 				log_->warn("Lobby max reached");
+				addLobbyMtx_.unlock();
 				return nullptr;
 			}
 
@@ -215,19 +216,26 @@ void hgs::SharedMemory::DropLobby(Lobby* lobby) {
 	if (lobby == firstLobby_ && firstLobby_ == lastLobby_) {
 		firstLobby_ = nullptr;
 		lastLobby_ = nullptr;
+		log_->info("First and last");
 	}
 	else if (lobby == firstLobby_) {
 		firstLobby_ = lobby->next;
 		firstLobby_->prev = nullptr;
+		log_->info("First");
 	}
 	// Targeted lobby is last in list
 	else if (lobby == lastLobby_) {
 		lastLobby_ = lobby->prev;
 		lastLobby_->next = nullptr;
+		log_->info("Last");
 	}
 	// Target lobby is somewhere in middle of list
-	else { lobby->prev->next = lobby->next; }
-
+	else { 
+		lobby->prev->next = lobby->next; 
+		lobby->next->prev = lobby->prev;
+		
+		log_->info("Middle");
+	}
 
 	// Delete the lobby
 	lobby->Drop();

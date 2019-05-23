@@ -505,7 +505,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			return std::make_pair(1, statusMessage);
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
-			const int id = sharedMemory_->GetLobbyId(part[1]);
 
 			Lobby* lobby;
 
