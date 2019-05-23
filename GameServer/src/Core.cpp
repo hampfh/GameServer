@@ -481,29 +481,27 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			statusMessage = lobby->List();
 		}
-		else if (part.size() >= 3 && part[2] == "start") {
+		else if (part.size() >= 3 && (part[2] == "start" || part[2] == "pause")) {
+
+			Command action = (part[2] == "start" ? start : pause);
+
 			const int id = sharedMemory_->GetLobbyId(part[1]);
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				BroadcastCoreCall(id, 0, Command::start);
-				statusMessage = "Lobby started!";
-				log_->info(statusMessage);
-			} else {
-				statusMessage = "Main lobby cannot be targeted for start";
+			if (id == sharedMemory_->GetMainLobby()->GetId()) {
+				statusMessage = "Main lobby cannot be targeted for this action";
 				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
-		}
-		else if (part.size() >= 3 && part[2] == "pause") {
-			const int id = sharedMemory_->GetLobbyId(part[1]);
-			if (id != sharedMemory_->GetMainLobby()->GetId()) {
-				BroadcastCoreCall(id, 0, Command::pause);
-				statusMessage = "Lobby paused!";
-				log_->info(statusMessage);
-			} else {
-				statusMessage = "Main lobby cannot be targeted for pause";
+			else if (id == -1) {
+				statusMessage = "Entered lobby was not found";
 				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
+
+			BroadcastCoreCall(id, 0, action);
+			statusMessage = "Lobby "; 
+			statusMessage.append(action == Command::start ? "started" : "paused");
+			statusMessage.append("!");
+			log_->info(statusMessage);
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
 
