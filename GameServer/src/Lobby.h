@@ -60,7 +60,7 @@ namespace hgs {
 
 	class Lobby {
 	public:
-		Lobby(int id, std::string& name_tag, int max_connections, gsl::not_null<SharedMemory*> shared_memory);
+		Lobby(int id, std::string& name_tag, gsl::not_null<SharedMemory*> shared_memory, Configuration* conf);
 		~Lobby();
 		/**
 			Cleanup lobby and delete drop all
@@ -206,8 +206,7 @@ namespace hgs {
 
 		State internalState_ = none;
 
-		// Maximum lobby connections the server will allow
-		int maxConnections_;
+		Configuration* conf_;
 
 		// All clients connected to the lobby
 		int connectedClients_;

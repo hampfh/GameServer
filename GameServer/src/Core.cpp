@@ -1,23 +1,21 @@
 #include "pch.h"
 #include "Core.h"
+#include "RconClient.h"
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 hgs::Core::Core() {
 	clientIndex_ = 0;
 	rconIndex_ = 1;
-	maxConnections_ = 0;
-	rconMaxConnections_ = 0;
 	rconConnections_ = 0;
 	seed_ = 0;
-	port_ = 10000;
-	rconPort_ = 0;
-	rcon_ = false;
 	running_ = true;
 	ready = true;
 
+	conf_ = SetupConfig();
+
 	// Initialization
-	sharedMemory_ = new SharedMemory;
+	sharedMemory_ = new SharedMemory(conf_);
 
 	// Setup core logger
 	std::vector<spdlog::sink_ptr> sinks;
@@ -29,17 +27,12 @@ hgs::Core::Core() {
 
 	log_->info("Version: 0.3");
 
-	if (SetupConfig() != 0) {
-		ready = false;
-		return;
-	}
-
 	if (SetupWinSock() != 0) {
 		ready = false;
 		return;
 	}
 
-	if (rcon_) {
+	if (conf_.rconEnable) {
 		// Open rcon port for listening
 		if (SetupRcon() != 0) {
 			ready = false;
@@ -67,9 +60,12 @@ void hgs::Core::CleanUp() const {
 
 }
 
-int hgs::Core::SetupConfig() {
-	log_->info("Loading configuration file...");
-	try {
+hgs::Configuration hgs::Core::SetupConfig() const {
+	std::cout << "Loading configuration file..." << std::endl;
+
+	Configuration configuration;
+
+	try { // TODO remove try catch, check if folder exists instead
 		// Load content from conf file
 		scl::config_file file("server.conf", scl::config_file::READ);
 
@@ -78,51 +74,59 @@ int hgs::Core::SetupConfig() {
 			std::string& value = setting.second;
 
 			if (selector == "server_port") {
-				port_ = std::stoi(value);
+				configuration.serverPort = std::stoi(value);
 			}
 			else if (selector == "clock_speed") {
-				sharedMemory_->SetClockSpeed(std::stoi(value));
+				configuration.clockSpeed = std::stoi(value);
 			}
 			else if(selector == "socket_processing_max") {
-				timeInterval_.tv_usec = std::stoi(value) * 1000;
+				configuration.socketProcessingMax.tv_usec = std::stoi(value) * 1000;
 			}
 			else if (selector == "timeout_tries") {
-				sharedMemory_->SetTimeoutTries(std::stoi(value));
+				configuration.timeoutTries = std::stoi(value);
 			}
 			else if (selector == "timeout_delay") {
-				sharedMemory_->SetTimeoutDelay(std::stof(value));
+				configuration.timeoutDelay = std::stof(value);
 			}
 			else if (selector == "max_connections") {
-				maxConnections_ = std::stoi(value);
+				configuration.maxConnections = std::stoi(value);
 			}
 			else if (selector == "rcon.enable") {
-				rcon_ = (value == "true");
+				configuration.rconEnable = (value == "true");
 			}
 			else if (selector == "rcon.port") {
-				rconPort_ = std::stoi(value);
+				configuration.rconPort = std::stoi(value);
 			}
 			else if (selector == "rcon.password") {
-				rconPassword_ = value;
+				configuration.rconPassword = value;
+			}
+			else if (selector == "log_path") {
+				configuration.logPath = value;
+			}
+			else if (selector == "session_log_path") {
+				configuration.sessionPath = value;
 			}
 			else if (selector == "rcon.max_connections") {
-				rconMaxConnections_ = std::stoi(value);
+				configuration.rconMaxConnections = std::stoi(value);
 			}
 			else if (selector == "lobby.max_connections") {
-				sharedMemory_->SetLobbyMax(std::stoi(value));
+				configuration.lobbyMaxConnections = std::stoi(value);
 			}
 			else if (selector == "lobby.session_logging") {
-				sharedMemory_->SetSessionLogging(value == "true");
+				configuration.lobbySessionLogging = value == "true";
 			}
-			else if (selector == "lobby..start_id_at") {
-				sharedMemory_->SetLobbyStartId(std::stoi(value));
+			else if (selector == "lobby.start_id_at") {
+				configuration.lobbyStartIdAt = std::stoi(value);
 			}
 			else if (selector == "start_id_at") {
-				clientIndex_ = std::stoi(value);
+				configuration.clientStartIdAt = std::stoi(value);
 			}
 		}
-		log_->info("Configurations loaded!");
+		std::cout << "Configurations loaded!" << std::endl;
+	
 	} catch (scl::could_not_open_error&) {
-		log_->warn("No configuration file found, creating conf file...");
+		
+		std::cout << "No configurations found, creating conf file..." << std::endl;
 
 		// Create standard values
 
@@ -140,6 +144,8 @@ int hgs::Core::SetupConfig() {
 		file.put("rcon.port", 15001);
 		file.put("rcon.password", "");
 		file.put("rcon.max_connections", 1);
+		file.put("log_path", "logs/");
+		file.put("session_log_path", "sessions/");
 
 		file.put(scl::comment(" Lobby settings"));
 		file.put("lobby.max_connections", 5);
@@ -153,11 +159,11 @@ int hgs::Core::SetupConfig() {
 		//and close it to save memory.
 		file.close();
 
-		log_->info("Configuration file created!");
+		std::cout << "Configuration file created!" << std::endl;
 
-		SetupConfig();
+		configuration = SetupConfig();
 	}
-	return 0;
+	return configuration;
 }
 
 int hgs::Core::SetupWinSock() {
@@ -181,7 +187,7 @@ int hgs::Core::SetupWinSock() {
 	// Binding connections
 	sockaddr_in hint = sockaddr_in();
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(port_);
+	hint.sin_port = htons(conf_.serverPort);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
@@ -205,7 +211,7 @@ int hgs::Core::SetupWinSock() {
 
 	log_->info("Server seed is " + std::to_string(seed_));
 
-	log_->info("Server port active on " + std::to_string(port_));
+	log_->info("Server port active on " + std::to_string(conf_.serverPort));
 
 	// Assign
 	sharedMemory_->SetSockets(master);
@@ -224,7 +230,7 @@ int hgs::Core::SetupRcon() {
 	// Binding connections
 	sockaddr_in hint = sockaddr_in();
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(rconPort_);
+	hint.sin_port = htons(conf_.rconPort);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
@@ -242,9 +248,9 @@ int hgs::Core::SetupRcon() {
 	FD_SET(rconListening_, &master);
 	rconMaster_ = master;
 
-	log_->info("Rcon port active on: " + std::to_string(rconPort_));
+	log_->info("Rcon port active on: " + std::to_string(conf_.rconPort));
 
-	if (rconPassword_.length() < 4) {
+	if (conf_.rconPassword.length() < 4) {
 		log_->error("Rcon password must at least be 4 characters");
 		return 1;
 	}
@@ -279,8 +285,8 @@ void hgs::Core::Loop() {
 	rconWorkingSet_ = rconMaster_;
 
 	// Get socket list size
-	const int result = select(0, &workingSet_, nullptr, nullptr, &timeInterval_);
-	const int rconResult = select(0, &rconWorkingSet_, nullptr, nullptr, &timeInterval_);
+	const int result = select(0, &workingSet_, nullptr, nullptr, &conf_.socketProcessingMax);
+	const int rconResult = select(0, &rconWorkingSet_, nullptr, nullptr, &conf_.socketProcessingMax);
 
 	// Add new connection to main lobby
 	InitializeReceiving(result, rconResult);
@@ -303,7 +309,7 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			const SOCKET newClient = accept(listening_, nullptr, nullptr);
 
 			// Check if max clients is reached
-			if (maxConnections_ <= sharedMemory_->GetConnectedClients()) {
+			if (conf_.maxConnections <= sharedMemory_->GetConnectedClients()) {
 				// Immediately close socket if max connections is reached
 				closesocket(newClient);
 				break;
@@ -348,7 +354,7 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			const SOCKET newClient = accept(rconListening_, nullptr, nullptr);
 
 			// Check if max clients is reached
-			if (rconMaxConnections_ <= rconConnections_) {
+			if (conf_.rconMaxConnections <= rconConnections_) {
 				// Immediately close socket if max connections is reached
 				closesocket(newClient);
 				break;
@@ -358,7 +364,7 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			FD_SET(newClient, &rconMaster_);
 
 			// Create rcon object
-			auto* clientObject = new RconClient(newClient, rconIndex_, this, rconPassword_, &rconMaster_, sharedMemory_->GetFileSink());
+			auto* clientObject = new RconClient(newClient, rconIndex_, this, conf_.rconPassword, &rconMaster_, sharedMemory_->GetFileSink());
 
 			// Create thread for rcon object
 			std::thread clientThread(&RconClient::Loop, clientObject);

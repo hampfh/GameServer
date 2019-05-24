@@ -1,10 +1,7 @@
 #include "pch.h"
 #include "SharedMemory.h"
 
-hgs::SharedMemory::SharedMemory() {
-
-	clockSpeed_ = 0;
-	sessionLogging_ = false;
+hgs::SharedMemory::SharedMemory(const Configuration& conf) : conf_(conf) {
 
 	// Create a global file sink
 	SetupLogging();
@@ -26,7 +23,7 @@ hgs::SharedMemory::~SharedMemory() {
 }
 
 void hgs::SharedMemory::SetupLogging() {
-	const std::string logFilePath = "logs/";
+	const std::string logFilePath = conf_.logPath;
 
 	// If log directory does not exists it is created
 	std::experimental::filesystem::create_directory(logFilePath);
@@ -37,15 +34,21 @@ void hgs::SharedMemory::SetupLogging() {
 	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	
 	// Create global sharedFileSink
-	sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
+	try {
+		
+		sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
 
-	// Setup memory logger
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedFileSink_);
-	log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	register_logger(log_);
+		// Setup memory logger
+		std::vector<spdlog::sink_ptr> sinks;
+		sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+		sinks.push_back(sharedFileSink_);
+		log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
+		log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+		register_logger(log_);
+	} catch (spdlog::spdlog_ex) {
+		std::cout << "Error, could not create logger. Is the logPath set correctly?" << std::endl;
+		throw std::exception();
+	}
 }
 
 void hgs::SharedMemory::AddSocket(const SOCKET new_socket) {
@@ -120,14 +123,14 @@ hgs::Lobby* hgs::SharedMemory::FindLobby(std::string& name_tag) const {
 hgs::Lobby* hgs::SharedMemory::AddLobby(std::string name) {
 	while (true) {
 		if (addLobbyMtx_.try_lock()) {
-			if (lobbyMax_ <= lobbiesAlive_ && lobbyMax_ != 0) {
+			if (conf_.lobbyMaxConnections <= lobbiesAlive_ && conf_.lobbyMaxConnections != 0) {
 				log_->warn("Lobby max reached");
 				addLobbyMtx_.unlock();
 				return nullptr;
 			}
 
 			// Add a new lobby and assign an id_
-			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, this, &conf_);
 			lobbiesAlive_++;
 
 			// Connect to list
@@ -165,7 +168,7 @@ hgs::Lobby* hgs::SharedMemory::CreateMainLobby() {
 			}
 			std::string name = "main";
 			// Add a new lobby and assign an id_
-			Lobby* newLobby = new Lobby(lobbyIndex_++, name, lobbyMax_, this);
+			Lobby* newLobby = new Lobby(lobbyIndex_++, name, this, &conf_);
 
 			lobbiesAlive_++;
 
@@ -276,18 +279,4 @@ int hgs::SharedMemory::GetLobbyId(std::string& string) const {
 	return -1;
 }
 
-void hgs::SharedMemory::SetConnectedClients(const int connected_clients) { connectedClients_ = connected_clients; }
-
 void hgs::SharedMemory::SetSockets(const fd_set list) { sockets_ = list; }
-
-void hgs::SharedMemory::SetTimeoutTries(const int tries) { timeoutTries_ = tries; }
-
-void hgs::SharedMemory::SetTimeoutDelay(const float delay) { timeoutDelay_ = delay; }
-
-void hgs::SharedMemory::SetClockSpeed(const int clock_speed) { clockSpeed_ = clock_speed; }
-
-void hgs::SharedMemory::SetLobbyMax(const int lobby_max) { lobbyMax_ = lobby_max; };
-
-void hgs::SharedMemory::SetLobbyStartId(const int start_id) { lobbyIndex_ = start_id; }
-
-void hgs::SharedMemory::SetSessionLogging(const bool session_logging) { sessionLogging_ = session_logging; }
