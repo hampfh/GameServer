@@ -103,9 +103,6 @@ hgs::Configuration hgs::Core::SetupConfig() const {
 			else if (selector == "log_path") {
 				configuration.logPath = value;
 			}
-			else if (selector == "session_log_path") {
-				configuration.sessionPath = value;
-			}
 			else if (selector == "rcon.max_connections") {
 				configuration.rconMaxConnections = std::stoi(value);
 			}
@@ -117,6 +114,9 @@ hgs::Configuration hgs::Core::SetupConfig() const {
 			}
 			else if (selector == "lobby.start_id_at") {
 				configuration.lobbyStartIdAt = std::stoi(value);
+			}
+			else if (selector == "lobby.session_path") {
+				configuration.sessionPath = value;
 			}
 			else if (selector == "start_id_at") {
 				configuration.clientStartIdAt = std::stoi(value);
@@ -141,22 +141,21 @@ hgs::Configuration hgs::Core::SetupConfig() const {
 		file.put("timeout_delay", 0.5);
 		file.put("max_connections", 10);
 		file.put("rcon.enable", "false");
-		file.put("rcon.port", 15001);
+		file.put("rcon.port", "");
 		file.put("rcon.password", "");
 		file.put("rcon.max_connections", 1);
 		file.put("log_path", "logs/");
-		file.put("session_log_path", "sessions/");
 
 		file.put(scl::comment(" Lobby settings"));
 		file.put("lobby.max_connections", 5);
 		file.put("lobby.start_id_at", 1);
 		file.put("lobby.session_logging", "false");
+		file.put("lobby.session_path", "sessions/");
 		file.put(scl::comment(" Client settings"));;
 		file.put("start_id_at", 1);
 
 		// Create file
 		file.write_changes();
-		//and close it to save memory.
 		file.close();
 
 		std::cout << "Configuration file created!" << std::endl;
