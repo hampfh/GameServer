@@ -1,7 +1,6 @@
 #pragma once
 #include "SharedMemory.h"
 #include "Client.h"
-#include <valarray>
 
 /**
 	Lobby.h
