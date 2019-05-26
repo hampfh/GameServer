@@ -5,7 +5,6 @@
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 hgs::Core::Core() {
-	clientIndex_ = 0;
 	rconIndex_ = 1;
 	rconConnections_ = 0;
 	seed_ = 0;
@@ -13,6 +12,7 @@ hgs::Core::Core() {
 	ready = true;
 
 	conf_ = SetupConfig();
+	clientIndex_ = conf_.clientStartIdAt;
 
 	// Initialization
 	sharedMemory_ = new SharedMemory(conf_);
@@ -320,7 +320,7 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
 
 			// Create a setup message
-			std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
+			const std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
 
 			// Send the message to the new client
 			send(newClient, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
