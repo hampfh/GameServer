@@ -1,6 +1,7 @@
 #pragma once
 #include "SharedMemory.h"
 #include "Lobby.h"
+#include "utilities.h"
 
 /**
     Client.h
@@ -85,23 +86,6 @@ namespace hgs {
 			@return void
 		 */
 		void DropLobbyConnections();
-		/**
-			Checks whether a command is an
-			API call
-			
-			@param command
-			@return bool
-		 */
-		bool IsApiCall(std::string& command) const;
-		/**
-			Parses an incoming request and perform
-			necessary actions
-
-			@param command
-			@param value
-			@return void
-		 */
-		void ApiParser(std::string& command, std::vector<std::string>& value);
 
 		// Getter
 		std::string GetCommand() const { return clientCommand_; };

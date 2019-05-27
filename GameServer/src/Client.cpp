@@ -10,6 +10,7 @@ socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), sharedMemory_(shared_memory), lob
 	lastState_ = none;
 	paused_ = false;
 	attached_ = true;
+	//upStreamCall_ = nullptr;
 
 	loopInterval_ = std::chrono::microseconds(1000);
 
@@ -92,17 +93,8 @@ void hgs::Client::Receive() {
 
 	clientCommand_ = std::string(incoming, strlen(incoming));
 
-	if (IsApiCall(clientCommand_)) {
-		std::smatch matcher;
-		std::vector<std::string> apiCall = Split(clientCommand_);
-
-		apiCall.erase(apiCall.begin());
-		ApiParser(apiCall[0], apiCall);
-
-		clientCommand_.clear();
-	} 
 	// Only encapsulate if there is any content
-	else if (bytes > 1) {
+	if (bytes > 1) {
 		// Encapsulate command inside a socket block
 		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
 		clientCommand_.append("}");
@@ -223,27 +215,6 @@ void hgs::Client::DropLobbyConnections() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;
-}
-
-bool hgs::Client::IsApiCall(std::string& command) const {
-	std::smatch matcher;
-	// All client requests starting with '#' is interpreted as an API request
-	return (SplitFirst(command, matcher, comRegex_).second[0] == '#');
-}
-
-void hgs::Client::ApiParser(std::string& command, std::vector<std::string>& value) {
-	
-	// join a lobby
-	if (command == "#j" && value.size() >= 2) {
-		Lobby* target = nullptr;
-		std::string lobbyPassword = value[1];
-		if (utilities::IsInt(value[0])) {
-			target = sharedMemory_->FindLobby(std::stoi(value[0]));
-		} else {
-			target = sharedMemory_->FindLobby(value[0]);
-		}
-
-	}
 }
 
 void hgs::Client::SetCoreCall(std::vector<int>& core_call) { coreCall_.push_back(core_call); }

@@ -1,5 +1,6 @@
 #pragma once
 #include "Lobby.h"
+#include "utilities.h"
 
 /**
     SharedMemory.h

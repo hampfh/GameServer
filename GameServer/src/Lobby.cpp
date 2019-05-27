@@ -221,15 +221,16 @@ void hgs::Lobby::InitializeReceiving() {
 			// If client has received response then take it
 			if (current->GetState() == State::received) {
 				current->SetState(State::done_receiving);
-				std::string clientCommand = current->GetCommand();
-				if (!clientCommand.empty()) {
+				if (current->HasApiCall()) {
+					
+				} else if (!current->GetCommand().empty()) {
 					commandQueue_.push_back(current->GetCommand());
 
 					// Create log if enabled
 					if (sessionLog_ != nullptr) {
-						sessionLog_->info("Client#" + std::to_string(current->id) + " " + clientCommand);
-					}
-				} 
+						sessionLog_->info("Client#" + std::to_string(current->id) + " " + current->GetCommand());
+					}	
+				}
 				readyClients++;
 			}
 
