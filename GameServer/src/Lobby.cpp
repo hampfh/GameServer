@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "Lobby.h"
 
-hgs::SharedLobbyMemory::SharedLobbyMemory(){
+hgs::SharedLobbyMemory::SharedLobbyMemory(const int id) : id_(id){
 	state_ = none;
 	pauseState_ = 0;
 	nextState_ = none;
@@ -60,7 +60,7 @@ hgs::Lobby::Lobby(const int id, std::string& name_tag, const gsl::not_null <Shar
 	commandQueue_.clear();
 
 	running_ = true;
-	sharedLobbyMemory_ = new SharedLobbyMemory;
+	sharedLobbyMemory_ = new SharedLobbyMemory(id_);
 
 	// Setup lobby logger
 	std::vector<spdlog::sink_ptr> sinks;

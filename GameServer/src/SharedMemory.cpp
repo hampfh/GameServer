@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "SharedMemory.h"
+#include "utilities.h"
 
 hgs::SharedMemory::SharedMemory(const Configuration& conf) : conf_(conf) {
 
@@ -79,6 +80,23 @@ void hgs::SharedMemory::DropSocket(const SOCKET socket) {
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(100));
 	}
+}
+
+std::pair<int, std::string> hgs::SharedMemory::MoveClient(gsl::not_null<Lobby*> source, gsl::not_null<Lobby*> target, gsl::not_null<Client*> client) {
+
+	// Remove client from current lobby
+	source->DropClient(client, true, true);
+	// Add client to the selected lobby
+	if (target->AddClient(client, true, false) != 0) {
+		// Could not add client
+
+		// Kick client
+		client->End();
+		//TODO error checking
+		return std::make_pair(1, "Client was dropped, access denied");
+	}
+
+	return std::make_pair(0, "Success");
 }
 
 hgs::Client* hgs::SharedMemory::FindClient(const int client_id, const gsl::not_null<Lobby**> lobby) const {
@@ -241,14 +259,6 @@ void hgs::SharedMemory::DropLobby(Lobby* lobby) {
 	log_->info("Dropped lobby " + std::to_string(lobby->GetId()));
 }
 
-bool hgs::SharedMemory::IsInt(std::string& string) const {
-	try {
-		std::stoi(string);
-		return true;
-	}
-	catch (...) { return false; }
-}
-
 void hgs::SharedMemory::AddCoreCall(const int lobby, const int receiver, const int command) {
 	// Create and append call
 	// Sender, Receiver, Command
@@ -258,7 +268,7 @@ void hgs::SharedMemory::AddCoreCall(const int lobby, const int receiver, const i
 int hgs::SharedMemory::GetLobbyId(std::string& string) const {
 	Lobby* target;
 
-	if (IsInt(string)) {
+	if (utilities::IsInt(string)) {
 		target = FindLobby(std::stoi(string));
 		if (target != nullptr) {
 			return target->GetId();

@@ -45,6 +45,14 @@ namespace hgs {
 		 */
 		void DropSocket(SOCKET socket);
 		/**
+			Move a client from one lobby to another
+			@param target
+			@param source
+			@param client
+			@return std::pair<int, std::string>
+		 */
+		static std::pair<int, std::string> MoveClient(gsl::not_null<Lobby*> source, gsl::not_null<Lobby*> target, gsl::not_null<Client*> client);
+		/**
 			Iterate through the memory to try to find if a specific lobby
 			containing a specific client
 
@@ -100,15 +108,6 @@ namespace hgs {
 		void DropLobby(int id);
 		void DropLobby(Lobby* lobby);
 
-		/**
-			Checks if a string of
-			characters can be converted
-			to an int
-
-			@param string String to test for convert
-			@return bool
-		*/
-		bool IsInt(std::string& string) const;
 		/**
 			Method appends an internal or
 			external command for the clients

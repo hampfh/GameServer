@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Core.h"
 #include "RconClient.h"
+#include "utilities.h"
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
@@ -424,7 +425,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 		command = matcher.suffix().str();
 	}
 
-	if (part.size() >= 3 && part[0] == "/Client" && sharedMemory_->IsInt(part[1]) && part[2] == "drop") {
+	if (part.size() >= 3 && part[0] == "/Client" && utilities::IsInt(part[1]) && part[2] == "drop") {
 		// The first selector is lobby and the second is for client
 		Lobby* clientLobby = nullptr;
 		Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
@@ -471,7 +472,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 		}
 		else if (part.size() >= 3 && part[2] == "list") {
 			Lobby* lobby;
-			if (sharedMemory_->IsInt(part[1])) {
+			if (utilities::IsInt(part[1])) {
 				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
 			}
 			else {
@@ -512,7 +513,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			Lobby* lobby;
 
-			if (sharedMemory_->IsInt(part[1])) {
+			if (utilities::IsInt(part[1])) {
 				lobby = sharedMemory_->FindLobby(std::stoi(part[1]));
 			}
 			else {
@@ -534,7 +535,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			return std::make_pair(1, statusMessage);
 		}
 		// Second argument is lobby, third is client
-		else if (part.size() >= 4 && part[2] == "summon" && sharedMemory_->IsInt(part[3])) {
+		else if (part.size() >= 4 && part[2] == "summon" && utilities::IsInt(part[3])) {
 			// Get targeted lobby
 			const int targetedLobbyId = sharedMemory_->GetLobbyId(part[1]);
 
@@ -543,34 +544,21 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			// Find the current lobby and client
 			Lobby* currentLobby = nullptr;
 			Lobby* targetLobby = sharedMemory_->FindLobby(targetedLobbyId);
-			Client* currentClient = sharedMemory_->FindClient(clientId, &currentLobby);
+			Client* client = sharedMemory_->FindClient(clientId, &currentLobby);
 
-			if (currentClient != nullptr) {
+			if (client != nullptr) {
 				if (targetLobby != nullptr) {
-					// Remove client from current lobby
-					currentLobby->DropClient(currentClient, true, true);
-					// Add client to the selected lobby
-					if (targetLobby->AddClient(currentClient, true, false) != 0) {
-						// Could not add client
-
-						// Kick client
-						currentClient->End();
-						statusMessage = "Client was dropped, could not insert client to lobby";
-						log_->error(statusMessage);
-						return std::make_pair(1, statusMessage);
-					}
-
-				} else {
-					statusMessage = "Lobby#" + std::to_string(clientId) + " not found";
-					log_->warn(statusMessage);
-					return std::make_pair(1, statusMessage);
-				}
-			}
-			else {
-				statusMessage = "Client not found";
+					return SharedMemory::MoveClient(currentLobby, targetLobby, client);
+				} 
+				statusMessage = "Lobby#" + std::to_string(clientId) + " not found";
 				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
+			
+			statusMessage = "Client not found";
+			log_->warn(statusMessage);
+			return std::make_pair(1, statusMessage);
+	
 		} else {
 			statusMessage = "No specifier";
 			log_->warn(statusMessage);

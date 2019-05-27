@@ -166,6 +166,7 @@
     <ClCompile Include="src\Client.cpp" />
     <ClCompile Include="src\Core.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\RconClient.h" />
@@ -174,6 +175,7 @@
     <ClInclude Include="src\SharedMemory.h" />
     <ClInclude Include="src\Client.h" />
     <ClInclude Include="src\Core.h" />
+    <ClInclude Include="src\utilities.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

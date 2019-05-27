@@ -1,8 +1,9 @@
 #include "pch.h"
 #include "Client.h"
+#include "utilities.h"
 
-hgs::Client::Client(const SOCKET socket, gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
-socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
+hgs::Client::Client(const SOCKET socket, const gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
+socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 	isOnline_ = true;
 	state_ = none;
@@ -49,17 +50,15 @@ void hgs::Client::Loop() {
 				lastState_ != receiving) {
 				Receive();
 			}
-			// Thread sleep
 			std::this_thread::sleep_for(loopInterval_);
 		}
 	}
 
 	if (attached_) {
-		// Request detachment by lobby
-		RequestDrop();
+		// Add self to dropList in lobby
+		lobbyMemory_->AddDrop(this->id);
 
 		while (attached_) {
-			log_->info("Attached");
 			std::this_thread::sleep_for(std::chrono::milliseconds(250));
 		}
 	}
@@ -93,13 +92,23 @@ void hgs::Client::Receive() {
 
 	clientCommand_ = std::string(incoming, strlen(incoming));
 
+	if (IsApiCall(clientCommand_)) {
+		std::smatch matcher;
+		std::vector<std::string> apiCall = Split(clientCommand_);
+
+		apiCall.erase(apiCall.begin());
+		ApiParser(apiCall[0], apiCall);
+
+		clientCommand_.clear();
+	} 
 	// Only encapsulate if there is any content
-	if (bytes > 1) {
+	else if (bytes > 1) {
 		// Encapsulate command inside a socket block
 		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
 		clientCommand_.append("}");
 	}
-	else { clientCommand_.clear(); }
+	else 
+		clientCommand_.clear();
 
 	lastState_ = receiving;
 
@@ -119,7 +128,7 @@ void hgs::Client::Send() {
 
 	for (auto& client : queue) {
 		// Skip command if it comes from the client itself
-		if (Interpret(client)[0] == std::to_string(id)) { continue; }
+		if (Split(client)[0] == std::to_string(id)) { continue; }
 
 		outgoing.append(client);
 	}
@@ -181,28 +190,28 @@ void hgs::Client::CoreCallListener() {
 	}
 }
 
-std::vector<std::string> hgs::Client::Interpret(std::string string) const {
+std::vector<std::string> hgs::Client::Split(std::string string) const {
 
 	std::vector<std::string> matches;
 
-	const std::regex regexCommand("[^\\|{}\\[\\]]+");
 	std::smatch mainMatcher;
 
-	while (std::regex_search(string, mainMatcher, regexCommand)) {
-		for (auto addSegment : mainMatcher) {
-			// Append the commands to the list
-			matches.push_back(addSegment);
-		}
+	std::pair<bool, std::string> result;
+
+	do {
+		result = SplitFirst(string, mainMatcher, comRegex_);
+		matches.push_back(result.second);
+
 		string = mainMatcher.suffix().str();
-	}
+	} while (result.first);
 
 	return matches;
 }
 
-void hgs::Client::RequestDrop() const {
+std::pair<bool, std::string> hgs::Client::SplitFirst(std::string& string, std::smatch& matcher, const std::regex& regex) const {
 
-	// Add self to dropList in lobby
-	lobbyMemory_->AddDrop(this->id);
+	bool result = std::regex_search(string, matcher, regex);
+	return std::make_pair(result, matcher[0]);
 }
 
 void hgs::Client::End() {
@@ -214,6 +223,27 @@ void hgs::Client::DropLobbyConnections() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;
+}
+
+bool hgs::Client::IsApiCall(std::string& command) const {
+	std::smatch matcher;
+	// All client requests starting with '#' is interpreted as an API request
+	return (SplitFirst(command, matcher, comRegex_).second[0] == '#');
+}
+
+void hgs::Client::ApiParser(std::string& command, std::vector<std::string>& value) {
+	
+	// join a lobby
+	if (command == "#j" && value.size() >= 2) {
+		Lobby* target = nullptr;
+		std::string lobbyPassword = value[1];
+		if (utilities::IsInt(value[0])) {
+			target = sharedMemory_->FindLobby(std::stoi(value[0]));
+		} else {
+			target = sharedMemory_->FindLobby(value[0]);
+		}
+
+	}
 }
 
 void hgs::Client::SetCoreCall(std::vector<int>& core_call) { coreCall_.push_back(core_call); }
