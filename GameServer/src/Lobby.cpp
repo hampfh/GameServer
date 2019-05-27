@@ -221,9 +221,7 @@ void hgs::Lobby::InitializeReceiving() {
 			// If client has received response then take it
 			if (current->GetState() == State::received) {
 				current->SetState(State::done_receiving);
-				if (current->HasApiCall()) {
-					
-				} else if (!current->GetCommand().empty()) {
+				if (!current->GetCommand().empty()) {
 					commandQueue_.push_back(current->GetCommand());
 
 					// Create log if enabled
