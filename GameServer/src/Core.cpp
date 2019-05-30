@@ -6,58 +6,69 @@
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 hgs::Core::Core() {
-	rconIndex_ = 1;
-	rconConnections_ = 0;
-	seed_ = 0;
-	running_ = true;
-	ready = true;
 
 	conf_ = SetupConfig();
 	clientIndex_ = conf_.clientStartIdAt;
 
-	// Initialization
-	sharedMemory_ = new SharedMemory(conf_);
+	fileSink_ = SetupSpdlog();
 
-	// Setup core logger
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedMemory_->GetFileSink());
-	log_ = std::make_shared<spdlog::logger>("Core", begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	register_logger(log_);
+	std::string loggerName = "Core";
+	log_ = utilities::SetupLogger(loggerName, fileSink_);
 
-	log_->info("Version: 0.3");
+	log_->info("Version: 0.4");
 
-	if (SetupWinSock() != 0) {
+	listener_ = SetupWinSock();
+	if (listener_ == NULL) {
 		ready = false;
 		return;
 	}
 
 	if (conf_.rconEnable) {
-		// Open rcon port for listening
-		if (SetupRcon() != 0) {
+		rconListener_ = SetupRcon();
+		if (rconListener_ == NULL) {
 			ready = false;
 			return;
-		}
+		}	
 	}
 
 	SetupSessionDir();
 
 	// Create main lobby
-	if (sharedMemory_->CreateMainLobby() == nullptr) {
-		ready = false;
-	}
+	// TODO create main lobby
+
+	seed_ = utilities::Random();
 }
 
 hgs::Core::~Core() {
 	
 }
 
+std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> hgs::Core::SetupSpdlog() const {
+	const std::string logFilePath = conf_.logPath;
+
+	// If log directory does not exists it is created
+	std::experimental::filesystem::create_directory(logFilePath);
+
+	// Global spdlog settings
+	spdlog::flush_every(std::chrono::seconds(4));
+	spdlog::flush_on(spdlog::level::warn);
+	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
+	
+	// Create global sharedFileSink
+	try {
+		
+		const auto fileSink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
+
+		return fileSink;
+	} catch (spdlog::spdlog_ex&) {
+		std::cout << "Error, could not create logger. Is the logPath set correctly?" << std::endl;
+		throw std::exception();
+	}
+}
+
 void hgs::Core::CleanUp() const {
 	// Clean up server
 	WSACleanup();
-
-	delete sharedMemory_;
 
 }
 
@@ -166,7 +177,7 @@ hgs::Configuration hgs::Core::SetupConfig() const {
 	return configuration;
 }
 
-int hgs::Core::SetupWinSock() {
+SOCKET hgs::Core::SetupWinSock() {
 
 	// Initialize win sock	
 	const WORD ver = MAKEWORD(2, 2);
@@ -174,14 +185,14 @@ int hgs::Core::SetupWinSock() {
 	const int wsOk = WSAStartup(ver, &wsaData);
 	if (wsOk != 0) {
 		log_->error("Can't initialize winsock2");
-		return 1;
+		return NULL;
 	}
 
 	// Create listening socket
-	listening_ = socket(AF_INET, SOCK_STREAM, 0);
-	if (listening_ == INVALID_SOCKET) {
+	auto listener = socket(AF_INET, SOCK_STREAM, 0);
+	if (listener == INVALID_SOCKET) {
 		log_->error("Can't create listening socket");
-		return 1;
+		return NULL;
 	}
 
 	// Binding connections
@@ -191,40 +202,33 @@ int hgs::Core::SetupWinSock() {
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
-	bind(listening_, reinterpret_cast<const sockaddr*>(&hint), sizeof(hint));
+	bind(listener, reinterpret_cast<const sockaddr*>(&hint), sizeof(hint));
 
 	// Add listening socket
-	listen(listening_, SOMAXCONN);
+	listen(listener, SOMAXCONN);
 
 	// Create socket array
-	fd_set master;
-	FD_ZERO(&master);
-	workingSet_ = master;
+	FD_ZERO(&sockets_);
+	
 
 	// Add listening socket to array
-	FD_SET(listening_, &master);
-
-	// Generate server seed
-	std::random_device rd;
-	std::default_random_engine gen(rd());
-	seed_ = gen();
+	FD_SET(listener, &sockets_);
 
 	log_->info("Server seed is " + std::to_string(seed_));
 
 	log_->info("Server port active on " + std::to_string(conf_.serverPort));
 
-	// Assign
-	sharedMemory_->SetSockets(master);
-	return 0;
+	return listener;
 }
 
-int hgs::Core::SetupRcon() {
+SOCKET hgs::Core::SetupRcon() const {
 
 	// Create listening socket
-	rconListening_ = socket(AF_INET, SOCK_STREAM, 0);
-	if (rconListening_ == INVALID_SOCKET) {
-		log_->error("Can't create rcon listening socket");
-		return 1;
+	const auto listener = socket(AF_INET, SOCK_STREAM, 0);
+	if (listener == INVALID_SOCKET) {
+		char errorMsg[] = "Can't create rcon listening socket";
+		log_->error(errorMsg);
+		return NULL;
 	}
 
 	// Binding connections
@@ -234,27 +238,26 @@ int hgs::Core::SetupRcon() {
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	// Bind connections
-	bind(rconListening_, reinterpret_cast<const sockaddr*>(&hint), sizeof(hint));
+	bind(listener, reinterpret_cast<const sockaddr*>(&hint), sizeof(hint));
 
 	// Add listening socket
-	listen(rconListening_, SOMAXCONN);
+	listen(listener, SOMAXCONN);
 
 	// Create socket array
-	fd_set master;
-	FD_ZERO(&master);
-	rconWorkingSet_ = master;
+
+	FD_ZERO(&rconSockets_);
 
 	// Add listening socket to array
-	FD_SET(rconListening_, &master);
-	rconMaster_ = master;
+	FD_SET(listener, &rconSockets_);
 
 	log_->info("Rcon port active on: " + std::to_string(conf_.rconPort));
 
 	if (conf_.rconPassword.length() < 4) {
-		log_->error("Rcon password must at least be 4 characters");
-		return 1;
+		char errorMsg[] = "Rcon password must at least be 4 characters";
+		log_->error(errorMsg);
+		return NULL;
 	}
-	return 0;
+	return listener;
 }
 
 void hgs::Core::SetupSessionDir() const {
@@ -281,59 +284,59 @@ void hgs::Core::Execute() {
 void hgs::Core::Loop() {
 
 	// Duplicate master
-	workingSet_ = *sharedMemory_->GetSockets();
-	rconWorkingSet_ = rconMaster_;
+	fd_set workingSet = sockets_;
+	fd_set rconWorkingSet = rconSockets_;
 
 	// Get socket list size
-	const int result = select(0, &workingSet_, nullptr, nullptr, &conf_.socketProcessingMax);
-	const int rconResult = select(0, &rconWorkingSet_, nullptr, nullptr, &conf_.socketProcessingMax);
+	const int result = select(0, &workingSet, nullptr, nullptr, &conf_.socketProcessingMax);
+	const int rconResult = select(0, &rconWorkingSet, nullptr, nullptr, &conf_.socketProcessingMax);
 
 	// Add new connection to main lobby
-	InitializeReceiving(result, rconResult);
+	AcceptNewConnections(result, rconResult, workingSet, rconWorkingSet);
 	
 	// Default sleep time between responses
-	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
+	std::this_thread::sleep_for(std::chrono::milliseconds(conf_.clockSpeed));
 }
 
-void hgs::Core::InitializeReceiving(const int select_result, const int rcon_select_result) {
+void hgs::Core::AcceptNewConnections(const int select_result, const int rcon_select_result, const fd_set workingSet, fd_set rconWorkingSet) {
 
 	// Go through all new clients to game
 
 	for (int i = 0; i < select_result; i++) {
 
-		const SOCKET socket = workingSet_.fd_array[i];
+		const SOCKET socket = workingSet.fd_array[i];
 
-		if (socket == listening_) {
+		if (socket == listener_) {
 
 			// Check for new connections
-			const SOCKET newClient = accept(listening_, nullptr, nullptr);
+			const SOCKET newConnection = accept(listener_, nullptr, nullptr); // TODO second parameter has ip adress
 
 			// Check if max clients is reached
-			if (conf_.maxConnections <= sharedMemory_->GetConnectedClients()) {
+			if (conf_.maxConnections <= connections_) {
 				// Immediately close socket if max connections is reached
-				closesocket(newClient);
+				closesocket(newConnection);
 				break;
 			}
 
-			sharedMemory_->AddSocket(newClient);
+			AddConnection(newConnection);
 
 			// Create and connect it to main lobby
-			auto* clientObject = new Client(newClient, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
+			auto* clientObject = new Client(newConnection, sharedMemory_, clientIndex_, sharedMemory_->GetMainLobby()->GetId());
 
 			// Create a setup message
 			const std::string welcomeMsg = "Successfully connected to server|" + std::to_string(clientIndex_) + "|" + std::to_string(seed_);
 
 			// Send the message to the new client
-			send(newClient, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
+			send(newConnection, welcomeMsg.c_str(), static_cast<int>(welcomeMsg.size()) + 1, 0);
 
 			// Console message
-			log_->info("Client#" + std::to_string(newClient) + " connected to the server");
+			log_->info("Client#" + std::to_string(newConnection) + " connected to the server");
 
 			// Console message
-			log_->info("Client#" + std::to_string(newClient) + " was assigned ID " + std::to_string(clientIndex_));
+			log_->info("Client#" + std::to_string(newConnection) + " was assigned ID " + std::to_string(clientIndex_));
 
 			// Connect client to main lobby
-			sharedMemory_->GetMainLobby()->AddClient(clientObject, false);
+			edMemory_->GetMainLobby()->AddClient(clientObject, false); //TODO Connect client to master lobby
 
 			// Connect the new client to a new thread
 			std::thread clientThread(&Client::Loop, clientObject);
@@ -346,12 +349,12 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 	}
 	// Go through all new clients to rcon
 	for (int i = 0; i < rcon_select_result; i++) {
-		const SOCKET socket = rconWorkingSet_.fd_array[i];
+		const SOCKET socket = rconWorkingSet.fd_array[i];
 
-		if (socket == rconListening_) {
+		if (socket == rconListener_) {
 
 			// Check for new connections
-			const SOCKET newClient = accept(rconListening_, nullptr, nullptr);
+			const SOCKET newClient = accept(rconListener_, nullptr, nullptr);
 
 			// Check if max clients is reached
 			if (conf_.rconMaxConnections <= rconConnections_) {
@@ -361,10 +364,10 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			}
 
 			// Add newClient to the socketList
-			FD_SET(newClient, &rconMaster_);
+			FD_SET(newClient, &rconSockets_);
 
 			// Create rcon object
-			auto* clientObject = new RconClient(newClient, rconIndex_, this, conf_.rconPassword, &rconMaster_, sharedMemory_->GetFileSink());
+			auto* clientObject = new RconClient(newClient, rconIndex_, this, conf_.rconPassword, &rconSockets_, fileSink_);
 
 			// Create thread for rcon object
 			std::thread clientThread(&RconClient::Loop, clientObject);
@@ -373,6 +376,13 @@ void hgs::Core::InitializeReceiving(const int select_result, const int rcon_sele
 			break;
 		}
 	}
+}
+
+void hgs::Core::AddConnection(const SOCKET socket) {
+	// Add newClient to the socketList
+	FD_SET(socket, &sockets_);
+	// Increase connected clients number
+	connections_++;
 }
 
 void hgs::Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
@@ -441,7 +451,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 	} else if (part[0] == "/Lobby") {
 		if (part.size() >= 2 && part[1] == "create") {
 			if (part.size() >= 3) {
-				if (sharedMemory_->FindLobby(part[2]) == nullptr) {
+				if (sharedMemory_->FindLobby(part[2]) == nullptr) { // TODO POSSIBLE BUG if creating lobby with number
 					sharedMemory_->AddLobby(part[2]);
 				} else {
 					statusMessage = "There is already a lobby with that name";

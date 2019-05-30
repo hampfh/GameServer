@@ -1,9 +1,20 @@
 #pragma once
 #include "pch.h"
 
+/**
+    SharedMemory.h
+    Purpose: This files hold further utility functions
+
+    @author Hampus Hallkvist
+    @version 0.3 28/05/2019
+*/
+
 namespace hgs {
 	namespace utilities {
 		bool IsInt(std::string& string);
+		std::shared_ptr<spdlog::logger> SetupLogger(std::string& logger_name, std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink);
+		// Generate a random number using microsoft random
+		int Random();
 	}
 
 	
@@ -21,6 +32,10 @@ namespace hgs {
 		start = 0,
 		pause = 1,
 		kick = 2
+	};
+
+	enum ClientCommand {
+		
 	};
 
 	struct Configuration {

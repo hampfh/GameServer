@@ -1,6 +1,7 @@
 #pragma once
 // Standard libraries
 #include <vector>
+#include <deque>
 #include <winsock2.h>
 #include <regex>
 #include <thread>
@@ -10,6 +11,7 @@
 #include <mutex>
 #include <random>
 #include <filesystem>
+#include <algorithm>
 
 // Guidelines Support Library
 #undef max

@@ -1,39 +1,27 @@
 #include "pch.h"
-#include "Client.h"
+#include "client.h"
 #include "utilities.h"
 
-hgs::Client::Client(const SOCKET socket, const gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
-socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
-
-	isOnline_ = true;
-	state_ = none;
-	lastState_ = none;
-	paused_ = false;
-	attached_ = true;
-	//upStreamCall_ = nullptr;
+hgs::Client::Client(const SOCKET socket, gsl::not_null<std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>>>& file_sink, const int id, const int lobby_id) :
+socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), lobbyId(lobby_id), id(id) {
 
 	loopInterval_ = std::chrono::microseconds(1000);
 
-	// Setup client logger
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(sharedMemory_->GetFileSink());
-	log_ = std::make_shared<spdlog::logger>("Client#" + std::to_string(socket), begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	register_logger(log_);
+	std::string loggerName = "Client#" + std::to_string(socket);
+	log_ = utilities::SetupLogger(loggerName, file_sink);
 
 	log_->info("Assigned ID: " + std::to_string(id));
 }
 
 hgs::Client::~Client() {
-	isOnline_ = false;
+	alive_ = false;
 	log_->info("Dropped");
 	spdlog::drop("Client#" + std::to_string(socket_));
 	sharedMemory_->DropSocket(socket_);
 }
 
 void hgs::Client::Loop() {
-	while (isOnline_) {
+	while (alive_) {
 		// Listen for calls from core
 		CoreCallListener();
 
@@ -82,7 +70,7 @@ void hgs::Client::Receive() {
 	// Check if client responds
 	if (bytes <= 0) {
 		// Disconnect client
-		isOnline_ = false;
+		alive_ = false;
 		log_->warn("Lost connection to client");
 		// Tell other clients that this client has disconnected
 		clientCommand_ = "{" + std::to_string(id) + "|D}";
@@ -165,7 +153,7 @@ void hgs::Client::CoreCallListener() {
 						pendingSend_.append("P");
 						break;
 					case Command::kick:
-						isOnline_ = false;
+						alive_ = false;
 						break;
 					default:
 						break;
@@ -207,11 +195,11 @@ std::pair<bool, std::string> hgs::Client::SplitFirst(std::string& string, std::s
 }
 
 void hgs::Client::End() {
-	isOnline_ = false;
+	alive_ = false;
 	attached_ = false;
 }
 
-void hgs::Client::DropLobbyConnections() {
+void hgs::Client::DropLobbyAssociations() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;

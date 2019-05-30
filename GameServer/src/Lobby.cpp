@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Lobby.h"
+#include "lobby.h"
 
 hgs::SharedLobbyMemory::SharedLobbyMemory(const int id) : id_(id){
 	state_ = none;
@@ -18,15 +18,23 @@ void hgs::SharedLobbyMemory::AddDrop(const int id) {
 	}
 }
 
-void hgs::SharedLobbyMemory::ClearDropList() {
-	while (true) {
-		if (addDropMtx_.try_lock()) {
-			dropList_.clear();
-			addDropMtx_.unlock();
+void hgs::SharedLobbyMemory::AddClientMove(gsl::not_null<Client*> client, Lobby* target) {
+	while(true) {
+		if (addMoveMtx_.try_lock()) {
+			moveList_.emplace_back(std::make_pair(client, target));
+			addMoveMtx_.unlock();
 			return;
 		}
 		std::this_thread::sleep_for(std::chrono::microseconds(500));
 	}
+}
+
+void hgs::SharedLobbyMemory::ClearDropList() {
+	dropList_.clear();
+}
+
+void hgs::SharedLobbyMemory::ClearMoveList() {
+	moveList_.clear();
 }
 
 void hgs::SharedLobbyMemory::SetState(const State state) {
@@ -52,8 +60,8 @@ void hgs::SharedLobbyMemory::SetPauseState(const int pre_pause) {
 	}
 }
 
-hgs::Lobby::Lobby(const int id, std::string& name_tag, const gsl::not_null <SharedMemory*> shared_memory, Configuration* conf) : conf_(conf), sharedMemory_(shared_memory), id_(id), nameTag_(name_tag) {
-	//lobbyState_ = none;
+hgs::Lobby::Lobby(const int id, std::string& name_tag, Configuration* conf, std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>>& file_sink) : 
+conf_(conf), id_(id), nameTag_(name_tag) {
 	internalState_ = none;
 	coreCallPerformedCount_ = 0;
 	connectedClients_ = 0;
@@ -62,27 +70,19 @@ hgs::Lobby::Lobby(const int id, std::string& name_tag, const gsl::not_null <Shar
 	running_ = true;
 	sharedLobbyMemory_ = new SharedLobbyMemory(id_);
 
-	// Setup lobby logger
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-	sinks.push_back(shared_memory->GetFileSink());
-	log_ = std::make_shared<spdlog::logger>("Lobby#" + (!name_tag.empty() ? name_tag : std::to_string(id)), begin(sinks), end(sinks));
-	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	spdlog::register_logger(log_);
+	std::string loggerName = "Lobby#" + (!name_tag.empty() ? name_tag : std::to_string(id));
+	log_ = utilities::SetupLogger(loggerName, file_sink);
 
-	log_->info("Successfully created lobby [#" + std::to_string(id) + (!name_tag.empty() && name_tag.length() > 0 ? "] [#" + name_tag : "") + "]");
-
-	if (sharedMemory_->GetSessionLoggingEnabled()) {
-		// Generate a session log
+	// Generate a session log
+	if (conf_->lobbySessionLogging) {
+		
 		const std::string sessionLogPath = conf_->sessionPath;
+		
 		// If log directory does not exists it is created
 		std::experimental::filesystem::create_directory(sessionLogPath);
 
-		std::random_device rd;
-		default_random_engine rand(rd());
-
 		const std::string sessionIdentification = (!name_tag.empty() ? name_tag : std::to_string(id));
-		sessionFile_ = sessionLogPath + "#" + sessionIdentification + '-' + std::to_string(abs(static_cast<int>(rand()))) + ".session.log";
+		sessionFile_ = sessionLogPath + "#" + sessionIdentification + '-' + std::to_string(abs(utilities::Random())) + ".session.log";
 
 		sessionLog_ = spdlog::basic_logger_mt(
 			"SessionLog#" + sessionIdentification,
@@ -92,10 +92,6 @@ hgs::Lobby::Lobby(const int id, std::string& name_tag, const gsl::not_null <Shar
 	} else {
 		sessionLog_ = nullptr;
 	}
-}
-
-
-hgs::Lobby::~Lobby() {
 }
 
 void hgs::Lobby::CleanUp() {
@@ -123,7 +119,7 @@ void hgs::Lobby::Execute() {
 			break;
 		}
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
+		std::this_thread::sleep_for(std::chrono::milliseconds(conf_->clockSpeed));
 	}
 	CleanUp();
 
@@ -178,7 +174,7 @@ void hgs::Lobby::InitializeSending() {
 	int readyClients = 0;
 
 	// Check if all clients have sent
-	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
+	for (int i = 0; i < conf_->timeoutTries; i++) {
 		// Iterate through all clients
 		current = firstClient_;
 		while (current != nullptr) {
@@ -196,7 +192,7 @@ void hgs::Lobby::InitializeSending() {
 		}
 
 		// Sleep for half a millisecond, convert milliseconds to microseconds
-		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
+		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(conf_->timeoutDelay * 1000)));
 	}
 
 	DropNonResponding(State::done_sending);
@@ -213,7 +209,7 @@ void hgs::Lobby::InitializeReceiving() {
 
 	int readyClients = 0;
 
-	for (int i = 0; i < sharedMemory_->GetTimeoutTries(); i++) {
+	for (int i = 0; i < conf_->timeoutTries; i++) {
 		// Iterate through all clients
 		Client* current = firstClient_;
 		while (current != nullptr) {
@@ -240,7 +236,7 @@ void hgs::Lobby::InitializeReceiving() {
 		}
 
 		// Sleep for half a millisecond, convert milliseconds to microseconds
-		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(sharedMemory_->GetTimeoutDelay() * 1000)));
+		std::this_thread::sleep_for(std::chrono::microseconds(static_cast<int>(conf_->timeoutDelay * 1000)));
 	}
 
 	DropNonResponding(State::done_receiving);
@@ -248,7 +244,7 @@ void hgs::Lobby::InitializeReceiving() {
 	sharedLobbyMemory_->SetState(none);
 
 	// Flush the session log 
-	if (sharedMemory_->GetSessionLoggingEnabled()) {
+	if (conf_->lobbySessionLogging) {
 		sessionLog_->flush();
 	}
 }
@@ -433,7 +429,7 @@ hgs::Client* hgs::Lobby::DropClient(Client* client, const bool detach_only, cons
 
 	if (detach_only) {
 
-		client->DropLobbyConnections();
+		client->DropLobbyAssociations();
 
 		client->SetPrevState(none);
 		client->SetState(none);
@@ -478,6 +474,13 @@ void hgs::Lobby::DropAwaiting() {
 		DropClient(clientId);
 	}
 	sharedLobbyMemory_->ClearDropList();
+}
+
+void hgs::Lobby::MoveAwaiting() {
+	for (auto client : sharedLobbyMemory_->GetMoveList()) {
+		
+	}
+	sharedLobbyMemory_->ClearMoveList();
 }
 
 void hgs::Lobby::Drop() {

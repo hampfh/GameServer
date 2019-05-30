@@ -1,5 +1,5 @@
 #pragma once
-#include "Lobby.h"
+#include "lobby.h"
 #include "utilities.h"
 
 /**
@@ -7,7 +7,7 @@
     Purpose: This class holds data and information accessible for all threads
 
     @author Hampus Hallkvist
-    @version 0.2 07/05/2019
+    @version 0.3 07/05/2019
 */
 
 namespace hgs {
@@ -20,13 +20,6 @@ namespace hgs {
 	public:
 		SharedMemory(const Configuration& conf);
 		~SharedMemory();
-		/**
-			Setup method for logging in the core class
-			and global logging values
-
-			@return void
-		 */
-		void SetupLogging();
 		/**
 			Add a socket to the shared
 			memory and increase the
@@ -128,9 +121,7 @@ namespace hgs {
 		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
 		Lobby* GetFirstLobby() const { return firstLobby_; }
 		Lobby* GetMainLobby() const { return mainLobby_; }
-		int GetTimeoutTries() const { return conf_.timeoutTries; }
-		float GetTimeoutDelay() const { return conf_.timeoutDelay; }
-		int GetClockSpeed() const { return conf_.clockSpeed; }
+		Configuration GetConf() const { return conf_; };
 		std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
 		/**
 			This method will take in a string input and
@@ -138,7 +129,6 @@ namespace hgs {
 			the entered id
 		 */
 		int GetLobbyId(std::string& string) const;
-		bool GetSessionLoggingEnabled() const { return conf_.lobbySessionLogging; }
 		int GetLobbyCount() const { return lobbiesAlive_; };
 
 		// Setters

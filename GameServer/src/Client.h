@@ -1,6 +1,5 @@
 #pragma once
-#include "SharedMemory.h"
-#include "Lobby.h"
+#include "lobby.h"
 #include "utilities.h"
 
 /**
@@ -8,49 +7,59 @@
     Purpose: Separate thread made for communication with external socket
 
     @author Hampus Hallkvist
-    @version 0.2 07/05/2019
+    @version 0.3 07/05/2019
 */
 
 namespace hgs {
 
 	// Predefining classes
-	class SharedMemory;
 	class SharedLobbyMemory;
 
 	class Client {
+		
+		bool alive_ = true;
+		bool paused_ = false;
+
+		// Determines if the clients is connected to a lobby
+		bool attached_ = false;
+
+		SOCKET socket_;
+
+		std::chrono::microseconds loopInterval_;
+
+		std::shared_ptr<spdlog::logger> log_;
+
+		// Received response from client socket
+		std::string clientCommand_;
+		// Awaiting commands for coreCall
+		std::string pendingSend_;
+
+		std::vector<std::string> outgoingCommands_;
+
+		State state_ = none;
+		State lastState_ = none;
+
+		// Communication regex
+		const std::regex comRegex_;
+
+		SharedLobbyMemory* lobbyMemory_ = nullptr;
+
+		std::vector<std::vector<int>> coreCall_;
+
 	public:
-		Client(SOCKET socket, gsl::not_null<SharedMemory*> shared_memory, int id, int lobby_id);
+		// Client specifiers
+
+		int lobbyId;
+		int id;
+		Client* next = nullptr;
+		Client* prev = nullptr;
+
+	private:
+		Client(SOCKET socket, gsl::not_null<std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>>>& file_sink, int id, int lobby_id);
 		~Client();
 
-		/**
-			The loop for the client thread, this alternates
-			between sending and receiving mode
-
-			@return void
-		 */
 		void Loop();
-		/**
-			Method responsible for receiving information
-			from external socket. After receiving data the
-			information is passed to the shared memory
-
-			@return void
-		 */
 		void Receive();
-		/**
-			Method responsible for compiling data from
-			sharedMemory and core and later send that
-			to external socket
-
-			@return void
-		 */
-		void Send();
-		/**
-			Method responsible for interpreting and performing
-			calls from the core thread
-
-			@return void
-		 */
 		void CoreCallListener();
 		/**
 			Retrieve all matches on a string
@@ -61,31 +70,11 @@ namespace hgs {
 			of the earlier string
 		 */
 		std::vector<std::string> Split(std::string string) const;
-		/**
-			Retrieves the first match in the string
-
-			@param string
-			@param matcher
-			@param regex
-			@return std::pair<int, std::string> Vector containing all segments
-			of the earlier string
-		 */
 		std::pair<bool, std::string> SplitFirst(std::string& string, std::smatch& matcher, const std::regex& regex) const;
-		/**
-			Method does not delete anything but instead
-			tell the thread to exit and finish everything
-			by itself
-
-			@return void
-		 */
+	public:
+		void DropLobbyAssociations();
+		void Send();
 		void End();
-		/**
-			Removes the connection the client has
-			to the lobby memory
-
-			@return void
-		 */
-		void DropLobbyConnections();
 
 		// Getter
 		std::string GetCommand() const { return clientCommand_; };
@@ -103,50 +92,6 @@ namespace hgs {
 		void SetState(State state);
 		void SetPrevState(State state);
 		void SetOutgoing(std::vector<std::string>& outgoing);
-	private:
-
-		// Alive status of the socket
-		bool isOnline_;
-		bool paused_;
-		// The client thread will never delete itself if it is attached to something. When the lobby drop a client it changes the attached state via the End() method.
-		bool attached_;
-
-		SOCKET socket_;
-
-		std::chrono::microseconds loopInterval_;
-
-		// Shared pointer to logger
-		std::shared_ptr<spdlog::logger> log_;
-
-		// Received response from client socket
-		std::string clientCommand_;
-		// Awaiting commands for coreCall
-		std::string pendingSend_;
-
-		// Dynamic allocated array holding outgoing commands
-		std::vector<std::string> outgoingCommands_;
-
-		State state_;
-		State lastState_;
-
-		// Communication regex
-		const std::regex comRegex_;
-
-		SharedMemory* sharedMemory_ = nullptr;
-		SharedLobbyMemory* lobbyMemory_ = nullptr;
-
-		std::vector<std::vector<int>> coreCall_;
-	public:
-		// Client specifiers
-
-		int lobbyId;
-
-		// The id_ of the client
-		int id;
-		// Points to next lobby
-		Client* next = nullptr;
-		// Points to previous lobby
-		Client* prev = nullptr;
 
 	};
 

@@ -5,7 +5,6 @@
 hgs::SharedMemory::SharedMemory(const Configuration& conf) : conf_(conf) {
 
 	// Create a global file sink
-	SetupLogging();
 
 	coreCall_.clear();
 }
@@ -21,35 +20,6 @@ hgs::SharedMemory::~SharedMemory() {
 		prev = current;
 	}
 	std::this_thread::sleep_for(std::chrono::milliseconds(500));
-}
-
-void hgs::SharedMemory::SetupLogging() {
-	const std::string logFilePath = conf_.logPath;
-
-	// If log directory does not exists it is created
-	std::experimental::filesystem::create_directory(logFilePath);
-
-	// Global spdlog settings
-	spdlog::flush_every(std::chrono::seconds(4));
-	spdlog::flush_on(spdlog::level::warn);
-	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	
-	// Create global sharedFileSink
-	try {
-		
-		sharedFileSink_ = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(logFilePath + "log.log", 1048576 * 5, 3);
-
-		// Setup memory logger
-		std::vector<spdlog::sink_ptr> sinks;
-		sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-		sinks.push_back(sharedFileSink_);
-		log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
-		log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-		register_logger(log_);
-	} catch (spdlog::spdlog_ex) {
-		std::cout << "Error, could not create logger. Is the logPath set correctly?" << std::endl;
-		throw std::exception();
-	}
 }
 
 void hgs::SharedMemory::AddSocket(const SOCKET new_socket) {
