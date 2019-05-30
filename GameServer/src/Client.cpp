@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Client.h"
+#include "client.h"
 #include "utilities.h"
 
 hgs::Client::Client(const SOCKET socket, const gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :

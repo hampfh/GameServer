@@ -1,5 +1,5 @@
 #pragma once
-#include "Lobby.h"
+#include "lobby.h"
 #include "utilities.h"
 
 /**

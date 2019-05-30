@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "Lobby.h"
+#include "lobby.h"
 
 hgs::SharedLobbyMemory::SharedLobbyMemory(const int id) : id_(id){
 	state_ = none;

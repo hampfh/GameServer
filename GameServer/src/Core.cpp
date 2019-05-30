@@ -1,6 +1,6 @@
 #include "pch.h"
-#include "Core.h"
-#include "RconClient.h"
+#include "core.h"
+#include "rcon_client.h"
 #include "utilities.h"
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm

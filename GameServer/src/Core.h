@@ -1,5 +1,5 @@
 #pragma once
-#include "SharedMemory.h"
+#include "shared_memory.h"
 #include "pch.h"
 
 /**

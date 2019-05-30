@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "SharedMemory.h"
+#include "shared_memory.h"
 #include "utilities.h"
 
 hgs::SharedMemory::SharedMemory(const Configuration& conf) : conf_(conf) {
