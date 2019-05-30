@@ -545,7 +545,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			// Find the current lobby and client
 			Lobby* targetLobby = sharedMemory_->FindLobby(targetedLobbyId);
-			std::pair<Client*, Lobby*> result = sharedMemory_->FindClient(std::stoi(part[1]));
+			std::pair<Client*, Lobby*> result = sharedMemory_->FindClient(clientId);
 			Client* client = result.first;
 			Lobby* currentLobby = result.second;
 
