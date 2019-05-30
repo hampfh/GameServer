@@ -5,6 +5,7 @@
 logs/
 *.conf
 tests/
+repositories/
 
 # User-specific files
 *.suo

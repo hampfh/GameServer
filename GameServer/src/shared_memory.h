@@ -1,5 +1,6 @@
 #pragma once
-#include "Lobby.h"
+#include "lobby.h"
+#include "utilities.h"
 
 /**
     SharedMemory.h
@@ -17,7 +18,7 @@ namespace hgs {
 
 	class SharedMemory {
 	public:
-		SharedMemory();
+		SharedMemory(const Configuration& conf);
 		~SharedMemory();
 		/**
 			Setup method for logging in the core class
@@ -45,6 +46,14 @@ namespace hgs {
 		 */
 		void DropSocket(SOCKET socket);
 		/**
+			Move a client from one lobby to another
+			@param target
+			@param source
+			@param client
+			@return std::pair<int, std::string>
+		 */
+		std::pair<int, std::string> MoveClient(gsl::not_null<Lobby*> source, Lobby* target, gsl::not_null<Client*> client) const;
+		/**
 			Iterate through the memory to try to find if a specific lobby
 			containing a specific client
 
@@ -53,7 +62,7 @@ namespace hgs {
 			the lobby where the client was found
 			@return Lobby* if client is found, otherwise nullptr
 		 */
-		Client* FindClient(int client_id, gsl::not_null<Lobby**> lobby) const;
+		std::pair<Client*, Lobby*> FindClient(int client_id) const;
 		/**
 			Iterate through the memory to find the specified lobby
 
@@ -101,15 +110,6 @@ namespace hgs {
 		void DropLobby(Lobby* lobby);
 
 		/**
-			Checks if a string of
-			characters can be converted
-			to an int
-
-			@param string String to test for convert
-			@return bool
-		*/
-		bool IsInt(std::string& string) const;
-		/**
 			Method appends an internal or
 			external command for the clients
 			depending on the receiver
@@ -128,9 +128,7 @@ namespace hgs {
 		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
 		Lobby* GetFirstLobby() const { return firstLobby_; }
 		Lobby* GetMainLobby() const { return mainLobby_; }
-		int GetTimeoutTries() const { return timeoutTries_; }
-		float GetTimeoutDelay() const { return timeoutDelay_; }
-		int GetClockSpeed() const { return clockSpeed_; }
+		Configuration GetConfigurations() const { return conf_; };
 		std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
 		/**
 			This method will take in a string input and
@@ -138,24 +136,17 @@ namespace hgs {
 			the entered id
 		 */
 		int GetLobbyId(std::string& string) const;
-		bool GetSessionLogging() const { return sessionLogging_; }
 		int GetLobbyCount() const { return lobbiesAlive_; };
 
 		// Setters
 
-		void SetConnectedClients(int connected_clients);
 		void SetSockets(fd_set list);
-		//void SetFileSink(std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> shared_file_sink);
-		void SetTimeoutTries(int tries);
-		void SetTimeoutDelay(float delay);
-		void SetClockSpeed(int clock_speed);
-		void SetLobbyMax(int lobby_max);
-		void SetLobbyStartId(int start_id);
-		void SetSessionLogging(bool session_logging);
 
 	private:
 		// A collection of all sockets
 		fd_set sockets_;
+
+		Configuration conf_;
 
 		// All clients connected to the server
 		int connectedClients_ = 0;
@@ -170,8 +161,6 @@ namespace hgs {
 		// Index adding up for each connected client
 		int lobbyIndex_ = 0;
 		int lobbiesAlive_ = 0;
-		// Max number of lobbies
-		int lobbyMax_ = 0;
 
 		// Start of lobby linked list
 		Lobby* firstLobby_ = nullptr;
@@ -182,18 +171,9 @@ namespace hgs {
 
 		// Shared pointer to logger
 		std::shared_ptr<spdlog::logger> log_;
-		// Decides if the server will log client communication
-		bool sessionLogging_;
-
-		// The number of tries before timeout
-		int timeoutTries_ = 0;
-		// Time to wait between each timeout iteration
-		float timeoutDelay_ = 0;
 
 		// Dynamic allocated array holding all core calls
 		std::vector<std::vector<int>> coreCall_;
-
-		int clockSpeed_;
 
 		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> sharedFileSink_;
 	};

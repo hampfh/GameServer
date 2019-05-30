@@ -1,6 +1,7 @@
 #pragma once
-#include "SharedMemory.h"
-#include "Lobby.h"
+#include "shared_memory.h"
+#include "lobby.h"
+#include "utilities.h"
 
 /**
     Client.h
@@ -52,21 +53,24 @@ namespace hgs {
 		 */
 		void CoreCallListener();
 		/**
-			The interpreter separates a string into
+			Retrieve all matches on a string
 			multiple segments, splitting by characters
 			"|{}[]"
 
 			@return std::vector<std::string> Vector containing all segments
 			of the earlier string
 		 */
-		std::vector<std::string> Interpret(std::string string) const;
+		std::vector<std::string> Split(std::string string) const;
 		/**
-			The Drop method removes the socket from the server register,
-			drops the client and stop the external thread
+			Retrieves the first match in the string
 
-			@return void
+			@param string
+			@param matcher
+			@param regex
+			@return std::pair<int, std::string> Vector containing all segments
+			of the earlier string
 		 */
-		void RequestDrop() const;
+		std::pair<bool, std::string> SplitFirst(std::string& string, std::smatch& matcher, const std::regex& regex) const;
 		/**
 			Method does not delete anything but instead
 			tell the thread to exit and finish everything
@@ -82,6 +86,9 @@ namespace hgs {
 			@return void
 		 */
 		void DropLobbyConnections();
+
+		static bool IsApiCall(std::string& string);
+		void PerformApiCall(std::string& call);
 
 		// Getter
 		std::string GetCommand() const { return clientCommand_; };
@@ -124,6 +131,9 @@ namespace hgs {
 
 		State state_;
 		State lastState_;
+
+		// Communication regex
+		const std::regex comRegex_;
 
 		SharedMemory* sharedMemory_ = nullptr;
 		SharedLobbyMemory* lobbyMemory_ = nullptr;

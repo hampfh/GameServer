@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "RconClient.h"
+#include "rcon_client.h"
 
 hgs::RconClient::RconClient(const SOCKET socket, const int id, const gsl::not_null<Core*> core, std::string& password, fd_set* socket_list, const std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> file_sink) :
 	socket_(socket), id_(id), core_(core), password_(password), socketList_(socket_list) {

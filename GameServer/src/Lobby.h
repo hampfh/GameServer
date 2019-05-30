@@ -1,7 +1,7 @@
 #pragma once
-#include "SharedMemory.h"
-#include "Client.h"
-#include <valarray>
+#include "shared_memory.h"
+#include "client.h"
+#include "utilities.h"
 
 /**
 	Lobby.h
@@ -17,10 +17,11 @@ namespace hgs {
 	// Predefining classes
 	class SharedMemory;
 	class Client;
+	class Lobby;
 
 	class SharedLobbyMemory {
 	public:
-		SharedLobbyMemory();
+		SharedLobbyMemory(int id, Lobby* parent);
 		/**
 			Add a client which the
 			lobby will remove next iteration
@@ -43,6 +44,8 @@ namespace hgs {
 		State* GetStatePointer() { return &state_; };
 		std::vector<int> GetDropList() const { return dropList_; };
 		int GetPauseState() const { return pauseState_; };
+		int GetId() const { return id_; };
+		Lobby* GetParent() const { return parent_; };
 
 		// Setters
 
@@ -53,14 +56,17 @@ namespace hgs {
 		State nextState_;
 		int pauseState_;
 		std::vector<int> dropList_;
+		const int id_;
 
 		std::mutex addDropMtx_;
 		std::mutex setPauseMtx_;
+
+		Lobby* parent_;
 	};
 
 	class Lobby {
 	public:
-		Lobby(int id, std::string& name_tag, int max_connections, gsl::not_null<SharedMemory*> shared_memory);
+		Lobby(int id, std::string& name_tag, gsl::not_null<SharedMemory*> shared_memory, Configuration* conf);
 		~Lobby();
 		/**
 			Cleanup lobby and delete drop all
@@ -206,8 +212,7 @@ namespace hgs {
 
 		State internalState_ = none;
 
-		// Maximum lobby connections the server will allow
-		int maxConnections_;
+		Configuration* conf_;
 
 		// All clients connected to the lobby
 		int connectedClients_;

@@ -28,21 +28,3 @@
 typedef std::mt19937 default_random_engine;
 
 #pragma comment(lib,"WS2_32")
-
-namespace hgs {
-	enum State {
-		none = 0,
-		receiving = 1,
-		received = 2,
-		done_receiving = 3,
-		sending = 4,
-		sent = 5,
-		done_sending = 6
-	};
-
-	enum Command {
-		start = 0,
-		pause = 1,
-		kick = 2
-	};
-}

@@ -1,14 +1,16 @@
 #include "pch.h"
-#include "Client.h"
+#include "client.h"
+#include "utilities.h"
 
-hgs::Client::Client(const SOCKET socket, gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
-socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
+hgs::Client::Client(const SOCKET socket, const gsl::not_null<SharedMemory*> shared_memory, const int id, const int lobby_id) :
+socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 
 	isOnline_ = true;
 	state_ = none;
 	lastState_ = none;
 	paused_ = false;
 	attached_ = true;
+	//upStreamCall_ = nullptr;
 
 	loopInterval_ = std::chrono::microseconds(1000);
 
@@ -20,7 +22,6 @@ socket_(socket), sharedMemory_(shared_memory), lobbyId(lobby_id), id(id) {
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 
-	log_->info("Assigned ID: " + std::to_string(id));
 }
 
 hgs::Client::~Client() {
@@ -49,17 +50,15 @@ void hgs::Client::Loop() {
 				lastState_ != receiving) {
 				Receive();
 			}
-			// Thread sleep
 			std::this_thread::sleep_for(loopInterval_);
 		}
 	}
 
 	if (attached_) {
-		// Request detachment by lobby
-		RequestDrop();
+		// Add self to dropList in lobby
+		lobbyMemory_->AddDrop(this->id);
 
 		while (attached_) {
-			log_->info("Attached");
 			std::this_thread::sleep_for(std::chrono::milliseconds(250));
 		}
 	}
@@ -95,11 +94,17 @@ void hgs::Client::Receive() {
 
 	// Only encapsulate if there is any content
 	if (bytes > 1) {
-		// Encapsulate command inside a socket block
-		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
-		clientCommand_.append("}");
+		if (IsApiCall(clientCommand_)) {
+			PerformApiCall(clientCommand_);
+			clientCommand_.clear();
+		} else {
+			// Encapsulate command inside a socket block
+			clientCommand_.insert(0, "{" + std::to_string(id) + "|");
+			clientCommand_.append("}");	
+		}
 	}
-	else { clientCommand_.clear(); }
+	else 
+		clientCommand_.clear();
 
 	lastState_ = receiving;
 
@@ -119,7 +124,7 @@ void hgs::Client::Send() {
 
 	for (auto& client : queue) {
 		// Skip command if it comes from the client itself
-		if (Interpret(client)[0] == std::to_string(id)) { continue; }
+		if (Split(client)[0] == std::to_string(id)) { continue; }
 
 		outgoing.append(client);
 	}
@@ -181,28 +186,28 @@ void hgs::Client::CoreCallListener() {
 	}
 }
 
-std::vector<std::string> hgs::Client::Interpret(std::string string) const {
+std::vector<std::string> hgs::Client::Split(std::string string) const {
 
 	std::vector<std::string> matches;
 
-	const std::regex regexCommand("[^\\|{}\\[\\]]+");
 	std::smatch mainMatcher;
 
-	while (std::regex_search(string, mainMatcher, regexCommand)) {
-		for (auto addSegment : mainMatcher) {
-			// Append the commands to the list
-			matches.push_back(addSegment);
-		}
+	std::pair<bool, std::string> result;
+
+	do {
+		result = SplitFirst(string, mainMatcher, comRegex_);
+		matches.push_back(result.second);
+
 		string = mainMatcher.suffix().str();
-	}
+	} while (result.first);
 
 	return matches;
 }
 
-void hgs::Client::RequestDrop() const {
+std::pair<bool, std::string> hgs::Client::SplitFirst(std::string& string, std::smatch& matcher, const std::regex& regex) const {
 
-	// Add self to dropList in lobby
-	lobbyMemory_->AddDrop(this->id);
+	bool result = std::regex_search(string, matcher, regex);
+	return std::make_pair(result, matcher[0]);
 }
 
 void hgs::Client::End() {
@@ -214,6 +219,51 @@ void hgs::Client::DropLobbyConnections() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;
+}
+
+bool hgs::Client::IsApiCall(std::string& string) {
+	for (char character : string) {
+		if (character == '#') return true;
+	}
+	return false;
+}
+void hgs::Client::PerformApiCall(std::string& call) {
+	std::vector<std::string> segment = Split(call);
+
+	// TODO add password support
+	if (segment[0] == "#join" && segment.size() >= 2) {
+		Lobby* target = nullptr;
+
+		if (utilities::IsInt(segment[1])) {
+			target = sharedMemory_->FindLobby(std::stoi(segment[1]));
+		} else {
+			target = sharedMemory_->FindLobby(segment[1]);
+		}
+
+		if (target == nullptr) {
+			pendingSend_.append("{#|Lobby does not exist}");
+			log_->warn("Client#" + std::to_string(id) + " tried to move to unknown lobby");
+			return;
+		} 
+		if (target == lobbyMemory_->GetParent()) {
+			pendingSend_.append("{#|Client is already located in targeted lobby}");
+			return;
+		}
+
+		const std::string result = sharedMemory_->MoveClient(lobbyMemory_->GetParent(), target, this).second;
+		pendingSend_.append("{#|" + result + "}");
+	}
+	else if (segment[0] == "#leave") {
+		if (lobbyMemory_->GetParent() == sharedMemory_->GetMainLobby()) {
+			pendingSend_.append("{#|Client is already located in main}");
+			return;
+		}
+		const std::string result = sharedMemory_->MoveClient(lobbyMemory_->GetParent(), nullptr, this).second;
+		pendingSend_.append(result);
+	}
+	else {
+		log_->warn("Client command not performed");
+	}
 }
 
 void hgs::Client::SetCoreCall(std::vector<int>& core_call) { coreCall_.push_back(core_call); }

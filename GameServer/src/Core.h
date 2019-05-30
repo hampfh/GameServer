@@ -1,6 +1,6 @@
 #pragma once
-#include "SharedMemory.h"
-#include "RconClient.h"
+#include "shared_memory.h"
+#include "pch.h"
 
 /**
     Core.h
@@ -27,9 +27,9 @@ namespace hgs {
 		/**
 			Setup method for configuration file
 
-			@return void
+			@return configuration
 		 */
-		int SetupConfig();
+		Configuration SetupConfig() const;
 		/**
 			Setup method for winsock2, creating all
 			necessary variables and dependencies for
@@ -112,13 +112,6 @@ namespace hgs {
 
 		bool running_;
 
-
-		// Rcon variables
-
-		bool rcon_;
-		int rconPort_;
-		std::string rconPassword_;
-		int rconMaxConnections_;
 		int rconConnections_;
 		SOCKET rconListening_;
 		// rcon index
@@ -126,23 +119,19 @@ namespace hgs {
 		fd_set rconMaster_;
 		fd_set rconWorkingSet_;
 
-		int port_;
-
 		SOCKET listening_;
 
 		std::mutex callInterpreter_;
 
 		// Id index
 		int clientIndex_;
-		// Maximum connections the server will allow
-		int maxConnections_;
 
 		unsigned int seed_;
 
+		Configuration conf_;
+
 		// Shared pointer to logger
 		std::shared_ptr<spdlog::logger> log_;
-
-		timeval timeInterval_;
 
 		fd_set workingSet_;
 

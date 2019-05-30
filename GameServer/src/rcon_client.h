@@ -1,6 +1,6 @@
 #pragma once
-#include "Client.h"
-#include "Core.h"
+#include "client.h"
+#include "core.h"
 
 /**
 	RconClient.h
