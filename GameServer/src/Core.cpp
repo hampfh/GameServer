@@ -34,6 +34,12 @@ hgs::Core::Core() {
 	}
 
 	if (conf_.rconEnable) {
+		if (conf_.rconPort <= 0) {
+			log_->error("Rcon port not defined");
+			ready = false;
+			return;
+		}
+
 		// Open rcon port for listening
 		if (SetupRcon() != 0) {
 			ready = false;
@@ -96,6 +102,10 @@ hgs::Configuration hgs::Core::SetupConfig() const {
 				configuration.rconEnable = (value == "true");
 			}
 			else if (selector == "rcon.port") {
+				if (value.size() <= 1) {
+					configuration.rconPort = -1;
+					continue;
+				}
 				configuration.rconPort = std::stoi(value);
 			}
 			else if (selector == "rcon.password") {
