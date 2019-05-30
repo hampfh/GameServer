@@ -82,10 +82,14 @@ void hgs::SharedMemory::DropSocket(const SOCKET socket) {
 	}
 }
 
-std::pair<int, std::string> hgs::SharedMemory::MoveClient(gsl::not_null<Lobby*> source, gsl::not_null<Lobby*> target, gsl::not_null<Client*> client) {
+std::pair<int, std::string> hgs::SharedMemory::MoveClient(gsl::not_null<Lobby*> source, Lobby* target, gsl::not_null<Client*> client) const {
 
 	// Remove client from current lobby
-	source->DropClient(client, true, true);
+	source->DropClient(client, true, false);
+
+	if (target == nullptr) {
+		target = mainLobby_;
+	}
 	// Add client to the selected lobby
 	if (target->AddClient(client, true, false) != 0) {
 		// Could not add client
@@ -99,19 +103,17 @@ std::pair<int, std::string> hgs::SharedMemory::MoveClient(gsl::not_null<Lobby*> 
 	return std::make_pair(0, "Success");
 }
 
-hgs::Client* hgs::SharedMemory::FindClient(const int client_id, const gsl::not_null<Lobby**> lobby) const {
+std::pair<hgs::Client*, hgs::Lobby*> hgs::SharedMemory::FindClient(const int client_id) const {
 	Lobby* current = firstLobby_;
 
 	while (current != nullptr) {
 		Client* client = current->FindClient(client_id);
 		if (client != nullptr) {
-			*lobby = current;
-			return client;
+			return std::make_pair(client, current);
 		}
 		current = current->next;
 	}
-	*lobby = nullptr;
-	return nullptr;
+	return std::make_pair(nullptr, nullptr);
 }
 
 hgs::Lobby* hgs::SharedMemory::FindLobby(const int lobby_id) const {

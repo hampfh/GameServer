@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "core.h"
 #include "rcon_client.h"
 #include "utilities.h"
@@ -292,7 +292,7 @@ void hgs::Core::Loop() {
 	InitializeReceiving(result, rconResult);
 	
 	// Default sleep time between responses
-	std::this_thread::sleep_for(std::chrono::milliseconds(sharedMemory_->GetClockSpeed()));
+	std::this_thread::sleep_for(std::chrono::milliseconds(conf_.clockSpeed));
 }
 
 void hgs::Core::InitializeReceiving(const int select_result, const int rcon_select_result) {
@@ -427,8 +427,10 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 	if (part.size() >= 3 && part[0] == "/Client" && utilities::IsInt(part[1]) && part[2] == "drop") {
 		// The first selector is lobby and the second is for client
-		Lobby* clientLobby = nullptr;
-		Client* currentClient = sharedMemory_->FindClient(std::stoi(part[1]), &clientLobby);
+		
+		std::pair<Client*, Lobby*> result = sharedMemory_->FindClient(std::stoi(part[1]));
+		Client* currentClient = result.first;
+		Lobby* clientLobby = result.second;
 
 		if (currentClient != nullptr && clientLobby != nullptr) {
 			clientLobby->DropClient(currentClient, false, true);
@@ -542,13 +544,14 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			const int clientId = std::stoi(part[3]);
 
 			// Find the current lobby and client
-			Lobby* currentLobby = nullptr;
 			Lobby* targetLobby = sharedMemory_->FindLobby(targetedLobbyId);
-			Client* client = sharedMemory_->FindClient(clientId, &currentLobby);
+			std::pair<Client*, Lobby*> result = sharedMemory_->FindClient(std::stoi(part[1]));
+			Client* client = result.first;
+			Lobby* currentLobby = result.second;
 
 			if (client != nullptr) {
 				if (targetLobby != nullptr) {
-					return SharedMemory::MoveClient(currentLobby, targetLobby, client);
+					return sharedMemory_->MoveClient(currentLobby, targetLobby, client);
 				} 
 				statusMessage = "Lobby#" + std::to_string(clientId) + " not found";
 				log_->warn(statusMessage);
@@ -567,6 +570,22 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 	}
 	else if (part[0] == "/Stop") {
 		running_ = false;
+	}
+	else if (part[0] == "/help") {
+		std::string commands =
+			"\n##### Console Commands #####\n\n\
+/Client <client id> drop - Drop a specific client\n\
+/Lobby\n\
+   create <name> - Creates a lobby with the entered name\n\
+   list - Lists all lobbies and how many clients they're holding\n\
+   <lobby> list - Lists all specifications about a specific lobby, including all clients connected to it\n\
+   <lobby> start - Sends a start signal to all clients in the targeted lobby\n\
+   <lobby> pause - Sends a pause signal to all clients in the targeted lobby\n\
+   <lobby> drop - Drops a lobby and all it's content\n\
+   <lobby> summon <client> - Transfers a client from one lobby to another\n\
+/Stop - Stops the server and closes all connections\n\n\
+For more information about the server console visit the documentation at: https://github.com/Hampfh/GameServer/wiki/Server-Console";
+		statusMessage = commands;
 	}
 	else {
 		statusMessage = "Command not recognized";

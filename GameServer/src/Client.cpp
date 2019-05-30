@@ -22,7 +22,6 @@ socket_(socket), comRegex_("[^\\|{}\\[\\]]+"), sharedMemory_(shared_memory), lob
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	register_logger(log_);
 
-	log_->info("Assigned ID: " + std::to_string(id));
 }
 
 hgs::Client::~Client() {
@@ -95,9 +94,14 @@ void hgs::Client::Receive() {
 
 	// Only encapsulate if there is any content
 	if (bytes > 1) {
-		// Encapsulate command inside a socket block
-		clientCommand_.insert(0, "{" + std::to_string(id) + "|");
-		clientCommand_.append("}");
+		if (IsApiCall(clientCommand_)) {
+			PerformApiCall(clientCommand_);
+			clientCommand_.clear();
+		} else {
+			// Encapsulate command inside a socket block
+			clientCommand_.insert(0, "{" + std::to_string(id) + "|");
+			clientCommand_.append("}");	
+		}
 	}
 	else 
 		clientCommand_.clear();
@@ -215,6 +219,51 @@ void hgs::Client::DropLobbyConnections() {
 
 	lobbyId = -1;
 	lobbyMemory_ = nullptr;
+}
+
+bool hgs::Client::IsApiCall(std::string& string) {
+	for (char character : string) {
+		if (character == '#') return true;
+	}
+	return false;
+}
+void hgs::Client::PerformApiCall(std::string& call) {
+	std::vector<std::string> segment = Split(call);
+
+	// TODO add password support
+	if (segment[0] == "#join" && segment.size() >= 2) {
+		Lobby* target = nullptr;
+
+		if (utilities::IsInt(segment[1])) {
+			target = sharedMemory_->FindLobby(std::stoi(segment[1]));
+		} else {
+			target = sharedMemory_->FindLobby(segment[1]);
+		}
+
+		if (target == nullptr) {
+			pendingSend_.append("{#|Lobby does not exist}");
+			log_->warn("Client#" + std::to_string(id) + " tried to move to unknown lobby");
+			return;
+		} 
+		if (target == lobbyMemory_->GetParent()) {
+			pendingSend_.append("{#|Client is already located in targeted lobby}");
+			return;
+		}
+
+		const std::string result = sharedMemory_->MoveClient(lobbyMemory_->GetParent(), target, this).second;
+		pendingSend_.append("{#|" + result + "}");
+	}
+	else if (segment[0] == "#leave") {
+		if (lobbyMemory_->GetParent() == sharedMemory_->GetMainLobby()) {
+			pendingSend_.append("{#|Client is already located in main}");
+			return;
+		}
+		const std::string result = sharedMemory_->MoveClient(lobbyMemory_->GetParent(), nullptr, this).second;
+		pendingSend_.append(result);
+	}
+	else {
+		log_->warn("Client command not performed");
+	}
 }
 
 void hgs::Client::SetCoreCall(std::vector<int>& core_call) { coreCall_.push_back(core_call); }

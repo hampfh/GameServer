@@ -52,7 +52,7 @@ namespace hgs {
 			@param client
 			@return std::pair<int, std::string>
 		 */
-		static std::pair<int, std::string> MoveClient(gsl::not_null<Lobby*> source, gsl::not_null<Lobby*> target, gsl::not_null<Client*> client);
+		std::pair<int, std::string> MoveClient(gsl::not_null<Lobby*> source, Lobby* target, gsl::not_null<Client*> client) const;
 		/**
 			Iterate through the memory to try to find if a specific lobby
 			containing a specific client
@@ -62,7 +62,7 @@ namespace hgs {
 			the lobby where the client was found
 			@return Lobby* if client is found, otherwise nullptr
 		 */
-		Client* FindClient(int client_id, gsl::not_null<Lobby**> lobby) const;
+		std::pair<Client*, Lobby*> FindClient(int client_id) const;
 		/**
 			Iterate through the memory to find the specified lobby
 
@@ -128,9 +128,7 @@ namespace hgs {
 		std::shared_ptr<spdlog::sinks::rotating_file_sink<std::mutex>> GetFileSink() const { return sharedFileSink_; }
 		Lobby* GetFirstLobby() const { return firstLobby_; }
 		Lobby* GetMainLobby() const { return mainLobby_; }
-		int GetTimeoutTries() const { return conf_.timeoutTries; }
-		float GetTimeoutDelay() const { return conf_.timeoutDelay; }
-		int GetClockSpeed() const { return conf_.clockSpeed; }
+		Configuration GetConfigurations() const { return conf_; };
 		std::vector<std::vector<int>> GetCoreCall() const { return coreCall_; }
 		/**
 			This method will take in a string input and
@@ -138,7 +136,6 @@ namespace hgs {
 			the entered id
 		 */
 		int GetLobbyId(std::string& string) const;
-		bool GetSessionLoggingEnabled() const { return conf_.lobbySessionLogging; }
 		int GetLobbyCount() const { return lobbiesAlive_; };
 
 		// Setters

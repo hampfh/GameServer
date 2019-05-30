@@ -87,6 +87,9 @@ namespace hgs {
 		 */
 		void DropLobbyConnections();
 
+		static bool IsApiCall(std::string& string);
+		void PerformApiCall(std::string& call);
+
 		// Getter
 		std::string GetCommand() const { return clientCommand_; };
 		State& GetState() { return state_; };

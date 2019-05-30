@@ -17,10 +17,11 @@ namespace hgs {
 	// Predefining classes
 	class SharedMemory;
 	class Client;
+	class Lobby;
 
 	class SharedLobbyMemory {
 	public:
-		SharedLobbyMemory(int id);
+		SharedLobbyMemory(int id, Lobby* parent);
 		/**
 			Add a client which the
 			lobby will remove next iteration
@@ -44,6 +45,7 @@ namespace hgs {
 		std::vector<int> GetDropList() const { return dropList_; };
 		int GetPauseState() const { return pauseState_; };
 		int GetId() const { return id_; };
+		Lobby* GetParent() const { return parent_; };
 
 		// Setters
 
@@ -58,6 +60,8 @@ namespace hgs {
 
 		std::mutex addDropMtx_;
 		std::mutex setPauseMtx_;
+
+		Lobby* parent_;
 	};
 
 	class Lobby {
