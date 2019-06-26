@@ -1,7 +1,6 @@
 #pragma once
 // Standard libraries
 #include <vector>
-#include <winsock2.h>
 #include <regex>
 #include <thread>
 #include <iostream>
@@ -9,7 +8,12 @@
 #include <string>
 #include <mutex>
 #include <random>
-#include <filesystem>
+
+#ifdef __linux__
+	#include <winsock2.h>
+	#include <experimental/filesystem>
+#elif _WIN32
+	#include <filesystem>
 
 // Guidelines Support Library
 #undef max
