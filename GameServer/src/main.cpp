@@ -11,7 +11,7 @@ using namespace hgs;
     @version 0.3 08/04/2019
 */
 
-int main(int argc, char* argv[]) {
+int main(int argc, char argv[]) {
 
 	Core core;
 
