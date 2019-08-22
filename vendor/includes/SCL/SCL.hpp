@@ -521,11 +521,11 @@ namespace scl {
 		};
 		
 		//functions to return iterators for a given config_file (range-based for loops)
-		config_file::iterator begin(config_file& file) {
+		inline config_file::iterator begin(config_file& file) {
 			return file.begin();
 		}
 		
-		config_file::iterator end(config_file& file) {
+		inline config_file::iterator end(config_file& file) {
 			return file.end();
 		}
 }

@@ -5,7 +5,16 @@
 
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
-hgs::Core::Core() {
+hgs::Core::Core(const bool default_setup) {
+	if (default_setup)
+		Init();
+}
+
+hgs::Core::~Core() {
+	
+}
+
+int hgs::Core::Init() {
 	rconIndex_ = 1;
 	rconConnections_ = 0;
 	seed_ = 0;
@@ -24,39 +33,35 @@ hgs::Core::Core() {
 	sinks.push_back(sharedMemory_->GetFileSink());
 	log_ = std::make_shared<spdlog::logger>("Core", begin(sinks), end(sinks));
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	register_logger(log_);
+	//register_logger(log_);
 
 	log_->info("Version: 0.3");
 
 	if (SetupWinSock() != 0) {
 		ready = false;
-		return;
+		return 1;
 	}
 
 	if (conf_.rconEnable) {
 		if (conf_.rconPort <= 0) {
 			log_->error("Rcon port not defined");
 			ready = false;
-			return;
+			return 1;
 		}
 
 		// Open rcon port for listening
 		if (SetupRcon() != 0) {
 			ready = false;
-			return;
+			return 1;
 		}
 	}
 
 	SetupSessionDir();
 
-	// Create main lobby
-	if (sharedMemory_->CreateMainLobby() == nullptr) {
+	if (sharedMemory_->CreateMainLobby() == nullptr)
 		ready = false;
-	}
-}
 
-hgs::Core::~Core() {
-	
+	return 0;
 }
 
 void hgs::Core::CleanUp() const {
@@ -221,7 +226,7 @@ int hgs::Core::SetupWinSock() {
 
 	log_->info("Server seed is " + std::to_string(seed_));
 
-	log_->info("Server port active on " + std::to_string(conf_.serverPort));
+	log_->info("Server listening on port " + std::to_string(conf_.serverPort));
 
 	// Assign
 	sharedMemory_->SetSockets(master);
@@ -397,8 +402,15 @@ void hgs::Core::BroadcastCoreCall(int lobby, int receiver, int command) const {
 void hgs::Core::ConsoleThread() {
 	std::string command;
 	while (true) {
+		std::cout << "> ";
 		std::getline(std::cin, command);
-		Interpreter(command);
+		std::pair<int, std::string> result = Interpreter(command);
+		if (result.second.length() > 1) {
+			if (result.first == 0)
+				log_->info(result.second);
+			else
+				log_->warn(result.second);
+		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 	}
 }
@@ -417,6 +429,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 	std::vector<std::string> part;
 	std::string command = input;
+	std::transform(command.begin(), command.end(), command.begin(), ::tolower);
 	std::string statusMessage;
 	
 	const std::regex regexCommand("[^ ]+");
@@ -435,7 +448,7 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 		command = matcher.suffix().str();
 	}
 
-	if (part.size() >= 3 && part[0] == "/Client" && utilities::IsInt(part[1]) && part[2] == "drop") {
+	if (part.size() >= 3 && part[0] == "/client" && utilities::IsInt(part[1]) && part[2] == "drop") {
 		// The first selector is lobby and the second is for client
 		
 		std::pair<Client*, Lobby*> result = sharedMemory_->FindClient(std::stoi(part[1]));
@@ -446,18 +459,16 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			clientLobby->DropClient(currentClient, false, true);
 		} else {
 			statusMessage = "Client or lobby not found";
-			log_->warn(statusMessage);
 			return std::make_pair(1, statusMessage);
 		}
 		
-	} else if (part[0] == "/Lobby") {
+	} else if (part[0] == "/lobby") {
 		if (part.size() >= 2 && part[1] == "create") {
 			if (part.size() >= 3) {
 				if (sharedMemory_->FindLobby(part[2]) == nullptr) {
 					sharedMemory_->AddLobby(part[2]);
 				} else {
 					statusMessage = "There is already a lobby with that name";
-					log_->warn(statusMessage);
 					return std::make_pair(1, statusMessage);
 				}
 			} else {
@@ -480,7 +491,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			// Print data
 			statusMessage = result;
-			log_->info(result);
 		}
 		else if (part.size() >= 3 && part[2] == "list") {
 			Lobby* lobby;
@@ -493,7 +503,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 
 			if (lobby == nullptr) {
 				statusMessage = "Could not find lobby";
-				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 
@@ -506,12 +515,10 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			const int id = sharedMemory_->GetLobbyId(part[1]);
 			if (id == sharedMemory_->GetMainLobby()->GetId()) {
 				statusMessage = "Main lobby cannot be targeted for this action";
-				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 			else if (id == -1) {
 				statusMessage = "Entered lobby was not found";
-				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 
@@ -519,7 +526,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			statusMessage = "Lobby "; 
 			statusMessage.append(action == Command::start ? "started" : "paused");
 			statusMessage.append("!");
-			log_->info(statusMessage);
 		}
 		else if (part.size() >= 3 && part[2] == "drop") {
 
@@ -534,7 +540,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 			
 			if (lobby == nullptr) {
 				statusMessage = "Could not find lobby";
-				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 			// Can't drop main lobby
@@ -543,7 +548,6 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 				return std::make_pair(0, "Lobby dropped");
 			}
 			statusMessage = "Can't drop main lobby";
-			log_->warn(statusMessage);
 			return std::make_pair(1, statusMessage);
 		}
 		// Second argument is lobby, third is client
@@ -564,28 +568,25 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
 					return sharedMemory_->MoveClient(currentLobby, targetLobby, client);
 				} 
 				statusMessage = "Lobby#" + std::to_string(clientId) + " not found";
-				log_->warn(statusMessage);
 				return std::make_pair(1, statusMessage);
 			}
 			
 			statusMessage = "Client not found";
-			log_->warn(statusMessage);
 			return std::make_pair(1, statusMessage);
 	
 		} else {
 			statusMessage = "No specifier";
-			log_->warn(statusMessage);
 			return std::make_pair(1, statusMessage);
 		}
 	}
-	else if (part[0] == "/Stop") {
+	else if (part[0] == "/stop") {
 		running_ = false;
 	}
 	else if (part[0] == "/help") {
 		std::string commands =
 			"\n##### Console Commands #####\n\n\
-/Client <client id> drop - Drop a specific client\n\
-/Lobby\n\
+/client <client id> drop - Drop a specific client\n\
+/lobby\n\
    create <name> - Creates a lobby with the entered name\n\
    list - Lists all lobbies and how many clients they're holding\n\
    <lobby> list - Lists all specifications about a specific lobby, including all clients connected to it\n\
@@ -593,15 +594,19 @@ std::pair<int, std::string> hgs::Core::Interpreter(std::string& input) {
    <lobby> pause - Sends a pause signal to all clients in the targeted lobby\n\
    <lobby> drop - Drops a lobby and all it's content\n\
    <lobby> summon <client> - Transfers a client from one lobby to another\n\
-/Stop - Stops the server and closes all connections\n\n\
-For more information about the server console visit the documentation at: https://github.com/Hampfh/GameServer/wiki/Server-Console";
+/stop - Stops the server and closes all connections\n\n\
+For more information about the server console visit the documentation at:\n\
+https://github.com/Hampfh/GameServer/wiki/Server-Console";
 		statusMessage = commands;
 	}
 	else {
 		statusMessage = "Command not recognized";
-		log_->warn(statusMessage);
 		return std::make_pair(1, statusMessage);
 	}
 
 	return std::make_pair(0, statusMessage);
+}
+
+void hgs::Core::SetConf(const Configuration conf) {
+	conf_ = conf;
 }

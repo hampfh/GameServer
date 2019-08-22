@@ -33,7 +33,7 @@ void hgs::SharedMemory::SetupLogging() {
 	spdlog::flush_every(std::chrono::seconds(4));
 	spdlog::flush_on(spdlog::level::warn);
 	spdlog::set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	
+
 	// Create global sharedFileSink
 	try {
 		
@@ -45,7 +45,7 @@ void hgs::SharedMemory::SetupLogging() {
 		sinks.push_back(sharedFileSink_);
 		log_ = std::make_shared<spdlog::logger>("Shared Memory", begin(sinks), end(sinks));
 		log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-		register_logger(log_);
+		//register_logger(log_); // The register seems to not work with the native tests
 	} catch (spdlog::spdlog_ex) {
 		std::cout << "Error, could not create logger. Is the logPath set correctly?" << std::endl;
 		throw std::exception();

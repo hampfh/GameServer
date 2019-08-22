@@ -14,8 +14,11 @@ namespace hgs {
 
 	class Core {
 	public:
-		Core();
+		Core(bool default_setup = true);
 		~Core();
+
+		int Init();
+
 		/**
 			Cleanup calls winsock2 cleanup, deletes
 			the shared memory and lastly delete the
@@ -99,6 +102,9 @@ namespace hgs {
 		std::pair<int, std::string> ServerCommand(std::string& command);
 
 		bool ready;
+
+		Configuration GetConf() const { return conf_; };
+		void SetConf(Configuration conf);
 	private:
 		/**
 			The interpreter is ran by another thread

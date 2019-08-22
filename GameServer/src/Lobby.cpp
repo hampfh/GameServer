@@ -68,7 +68,7 @@ hgs::Lobby::Lobby(const int id, std::string& name_tag, const gsl::not_null <Shar
 	sinks.push_back(shared_memory->GetFileSink());
 	log_ = std::make_shared<spdlog::logger>("Lobby#" + (!name_tag.empty() ? name_tag : std::to_string(id)), begin(sinks), end(sinks));
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
-	spdlog::register_logger(log_);
+	//spdlog::register_logger(log_);
 
 	log_->info("Successfully created lobby [#" + std::to_string(id) + (!name_tag.empty() && name_tag.length() > 0 ? "] [#" + name_tag : "") + "]");
 
