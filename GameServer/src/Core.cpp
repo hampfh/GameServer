@@ -3,6 +3,9 @@
 #include "rcon_client.h"
 #include "utilities.h"
 
+constexpr int version_major = 0;
+constexpr int version_minor = 3;
+
 //https://www.ibm.com/support/knowledgecenter/en/ssw_ibm_i_72/rzab6/xnonblock.htm
 
 hgs::Core::Core(const bool default_setup) {
@@ -35,7 +38,7 @@ int hgs::Core::Init() {
 	log_->set_pattern("[%a %b %d %H:%M:%S %Y] [%L] %^%n: %v%$");
 	//register_logger(log_);
 
-	log_->info("Version: 0.3");
+	log_->info("Version: " + std::to_string(version_major) + "." + std::to_string(version_minor));
 
 	if (SetupWinSock() != 0) {
 		ready = false;
