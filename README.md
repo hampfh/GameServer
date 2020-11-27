@@ -1,3 +1,6 @@
+# NOTE: Discontinued project
+Alternative [here](https://github.com/hampfh/symbiosis)
+
 # Multithreaded GameServer
 
 ## Features
